@@ -11,6 +11,15 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from legal_triage.agent import AnalysisError, analyze  # noqa: E402
+from legal_triage.checklist import (  # noqa: E402
+    ABSENT,
+    POSSIBLY_PRESENT,
+    PRESENT,
+    ClauseVerdict,
+    detect_document_type,
+    extract_structured_fields,
+    missing_clause_checklist,
+)
 from legal_triage.config import SETTINGS  # noqa: E402
 from legal_triage.ingestion import IngestionError  # noqa: E402
 from legal_triage.local_runtime import LocalModelError, LocalOllama  # noqa: E402
@@ -268,13 +277,19 @@ def render_result(result: dict, title: str = "Analysis", question: str = "") -> 
                         all_pages = source.get("all_pages", [source.get("page_number", "?")])
                         page_str = "+".join(str(p) for p in all_pages)
                         st.caption(f"Source: **{filename}**, page **{page_str}**")
-                        # Render quote; st.code keeps it inert (no HTML/Markdown injection)
-                        st.code(citation.get("quote", ""), language=None)
+                        # Phase 4: quote in context with highlight
+                        _render_quote_in_context(
+                            citation.get("quote", ""),
+                            source.get("text", ""),
+                        )
 
                     lawyer_question = finding.get("lawyer_question", "")
                     if lawyer_question:
                         st.markdown("**💬 Question to discuss with a qualified legal professional**")
                         st.info(lawyer_question)
+
+                    # --- Honest support badges (Phase 4) ---
+                    _render_support_badges(finding.get("support", []))
 
     # --- Jurisdiction hints ---
     jurisdiction_notes = result.get("jurisdiction_notes", [])
@@ -298,6 +313,154 @@ def render_result(result: dict, title: str = "Analysis", question: str = "") -> 
 
 
 # ---------------------------------------------------------------------------
+# Quote-in-context highlighting (Phase 4)
+# ---------------------------------------------------------------------------
+
+
+def _render_quote_in_context(quote: str, source_text: str) -> None:
+    """Show the verbatim quote highlighted inside its surrounding source passage.
+
+    The highlight is done with inline HTML (yellow background) so the judge can
+    immediately see the quote in its original context without reading the whole chunk.
+    Falls back to a plain st.code block if the quote cannot be located.
+    """
+    import html as _html
+    from legal_triage.grounding import normalize_text_for_matching
+
+    q_norm = normalize_text_for_matching(quote)
+    s_norm = normalize_text_for_matching(source_text)
+
+    idx = s_norm.find(q_norm) if q_norm else -1
+    if idx == -1 or not source_text:
+        # Fallback: plain code block (injection-safe)
+        st.code(quote, language=None)
+        return
+
+    # Find the approximate char position in the original (non-normalised) text.
+    # We use a ratio of normalised positions as an approximation.
+    ratio = idx / max(len(s_norm), 1)
+    orig_start = max(0, int(ratio * len(source_text)) - 10)
+    # Slide to align with the actual quote
+    q_len_est = len(quote)
+    orig_end = min(len(source_text), orig_start + q_len_est + 20)
+    # Expand context window
+    ctx_start = max(0, orig_start - 120)
+    ctx_end   = min(len(source_text), orig_end + 120)
+    prefix = source_text[ctx_start:orig_start]
+    matched = source_text[orig_start:orig_end]
+    suffix = source_text[orig_end:ctx_end]
+
+    # Escape HTML to prevent injection
+    esc_prefix  = _html.escape(prefix)
+    esc_matched = _html.escape(matched)
+    esc_suffix  = _html.escape(suffix)
+
+    html_block = (
+        "<div style='background:#1e1e2e;border-radius:6px;padding:10px 14px;"
+        "font-family:monospace;font-size:0.85em;line-height:1.6;color:#cdd6f4;"
+        "white-space:pre-wrap;word-break:break-word;'>"
+        f"{'<span style=&quot;color:#585b70&quot;>&hellip;</span>' if ctx_start > 0 else ''}"
+        f"{esc_prefix}"
+        f"<mark style='background:#f9e2af;color:#1e1e2e;border-radius:3px;"
+        f"padding:0 2px;'>{esc_matched}</mark>"
+        f"{esc_suffix}"
+        f"{'<span style=&quot;color:#585b70&quot;>&hellip;</span>' if ctx_end < len(source_text) else ''}"
+        "</div>"
+    )
+    st.markdown(html_block, unsafe_allow_html=True)
+
+
+# ---------------------------------------------------------------------------
+# Honest support badges (Phase 4)
+# ---------------------------------------------------------------------------
+
+
+def _render_support_badges(support: list[str]) -> None:
+    """Render small coloured badge pills for each grounding-support label."""
+    _BADGE_CONFIG = {
+        "quote_valid":      ("✔ Quote verified",  "#1e8449", "#d5f5e3"),
+        "numbers_verified": ("🔢 Numbers match",   "#1a5276", "#d6eaf8"),
+        "verifier_agrees":  ("🤖 Model-checked",   "#7d3c98", "#f5eef8"),
+        "unverified":       ("⚠ Unverified",       "#7e5109", "#fdebd0"),
+    }
+    badge_html = " ".join(
+        f"<span style='background:{bg};color:{fg};border-radius:4px;"
+        f"padding:2px 8px;font-size:0.78em;font-weight:600'>{label}</span>"
+        for key, (label, fg, bg) in _BADGE_CONFIG.items()
+        if key in support
+    )
+    if badge_html:
+        st.markdown(badge_html, unsafe_allow_html=True)
+
+
+# ---------------------------------------------------------------------------
+# Checklist and structured-extraction rendering (Phase 4)
+# ---------------------------------------------------------------------------
+
+
+def _render_checklist(chunks: list) -> None:
+    """Show a missing-clause checklist for the detected document type."""
+    if not chunks:
+        return
+    full_text = " ".join(c.text for c in chunks)
+    doc_type = detect_document_type(full_text)
+    verdicts = missing_clause_checklist(chunks, doc_type)
+    if not verdicts:
+        return
+
+    _VERDICT_ICON = {PRESENT: "✅", POSSIBLY_PRESENT: "⚠️", ABSENT: "❌"}
+    absent_required = [v for v in verdicts if v.verdict == ABSENT and v.required]
+
+    label = f"📋 Clause checklist ({doc_type} document)"
+    expanded = bool(absent_required)
+    with st.expander(label, expanded=expanded):
+        st.caption(
+            f"Document type detected: **{doc_type}**. "
+            "Checklist is keyword-based — review the full document to confirm."
+        )
+        if absent_required:
+            st.warning(
+                f"{len(absent_required)} potentially missing required clause(s) detected. "
+                "Review the full document before relying on it."
+            )
+        for v in verdicts:
+            icon = _VERDICT_ICON.get(v.verdict, "❓")
+            req_label = "" if v.required else " *(optional)*"
+            st.markdown(f"{icon} **{v.clause_name}**{req_label}")
+            if v.matched_quote and v.verdict != ABSENT:
+                st.caption(v.matched_quote[:160])
+
+
+def _render_structured_fields(chunks: list) -> None:
+    """Show a table of regex-extracted structured fields (amounts, dates, etc.)."""
+    if not chunks:
+        return
+    fields = extract_structured_fields(chunks)
+    if not fields:
+        return
+    # Group by field_name
+    from collections import defaultdict as _dd
+    grouped: dict[str, list] = _dd(list)
+    for f in fields:
+        grouped[f.field_name].append(f)
+
+    with st.expander("📊 Extracted structured fields", expanded=False):
+        st.caption(
+            "These values are extracted by regex from the document text. "
+            "Always verify against the original document."
+        )
+        for field_name, field_list in grouped.items():
+            st.markdown(f"**{field_name}**")
+            for sf in field_list[:5]:
+                col_val, col_src = st.columns([2, 3])
+                with col_val:
+                    st.code(sf.value, language=None)
+                with col_src:
+                    st.caption(f"{sf.filename} · page {sf.page_number}")
+                    st.caption(sf.quote[:120])
+
+
+# ---------------------------------------------------------------------------
 # Run analysis and store in session
 # ---------------------------------------------------------------------------
 
@@ -316,6 +479,10 @@ def run_and_store(question: str, mode: str) -> None:
         {"role": "assistant", "question": question, "mode": mode, "result": result}
     )
     render_result(result, "Whole-document triage" if mode == "triage" else "Answer", question=question)
+    # Phase 4: after triage, show checklist and structured extraction (rule-based, no model)
+    if mode == "triage" and not result.get("abstained"):
+        _render_checklist(index.chunks)
+        _render_structured_fields(index.chunks)
 
 
 # ---------------------------------------------------------------------------
@@ -380,13 +547,14 @@ with st.sidebar:
 st.subheader("1 · Add a document")
 upload_key = f"uploaded_files_{st.session_state.upload_epoch}"
 uploaded_files = st.file_uploader(
-    "Select text-based PDF or UTF-8 .txt files",
-    type=["pdf", "txt"],
+    "Select text-based PDF, UTF-8 .txt, or .docx files",
+    type=["pdf", "txt", "docx"],
     accept_multiple_files=True,
     key=upload_key,
     help=(
         f"Up to {SETTINGS.max_files} files; {SETTINGS.max_file_mb} MB per file. "
-        "Scanned PDFs need OCR, which this build does not include."
+        "Scanned PDFs need OCR, which this build does not include. "
+        "DOCX files are accepted — paragraph and table text are extracted."
     ),
 )
 
@@ -456,3 +624,90 @@ else:
             st.write(question)
         with st.chat_message("assistant"):
             run_and_store(question, "question")
+
+
+# ---------------------------------------------------------------------------
+# Step 3: Two-version comparison (Phase 4)
+# ---------------------------------------------------------------------------
+
+st.divider()
+st.subheader("3 · Compare two contract versions  *(optional)*")
+st.caption(
+    "Upload two versions of the same document type (e.g. draft vs final, "
+    "your contract vs landlord's template) and ask a specific question. "
+    "The agent answers each version independently so you can spot differences "
+    "in notice periods, amounts, obligations, etc."
+)
+
+cmp_col_a, cmp_col_b = st.columns(2)
+
+with cmp_col_a:
+    st.markdown("**Contract A**")
+    cmp_files_a = st.file_uploader(
+        "Upload Contract A (PDF / TXT / DOCX)",
+        type=["pdf", "txt", "docx"],
+        accept_multiple_files=True,
+        key="cmp_files_a",
+    )
+    if st.button("Index Contract A", key="cmp_idx_a", disabled=not cmp_files_a):
+        try:
+            rt = get_runtime()
+            with st.spinner("Indexing Contract A…"):
+                rt.verify_models()
+                st.session_state["cmp_index_a"] = build_index(
+                    [(f.name, f.getvalue()) for f in cmp_files_a], rt
+                )
+            st.success(f"Contract A indexed ({len(cmp_files_a)} file(s)).")
+        except (IngestionError, LocalModelError, ValueError, RuntimeError) as exc:
+            st.error(str(exc))
+
+with cmp_col_b:
+    st.markdown("**Contract B**")
+    cmp_files_b = st.file_uploader(
+        "Upload Contract B (PDF / TXT / DOCX)",
+        type=["pdf", "txt", "docx"],
+        accept_multiple_files=True,
+        key="cmp_files_b",
+    )
+    if st.button("Index Contract B", key="cmp_idx_b", disabled=not cmp_files_b):
+        try:
+            rt = get_runtime()
+            with st.spinner("Indexing Contract B…"):
+                rt.verify_models()
+                st.session_state["cmp_index_b"] = build_index(
+                    [(f.name, f.getvalue()) for f in cmp_files_b], rt
+                )
+            st.success(f"Contract B indexed ({len(cmp_files_b)} file(s)).")
+        except (IngestionError, LocalModelError, ValueError, RuntimeError) as exc:
+            st.error(str(exc))
+
+idx_a = st.session_state.get("cmp_index_a")
+idx_b = st.session_state.get("cmp_index_b")
+
+if idx_a and idx_b:
+    cmp_question = st.text_input(
+        "Question to ask about both contracts",
+        placeholder="e.g. What is the notice period to terminate?",
+        key="cmp_question",
+    )
+    if st.button("Compare", type="primary", key="cmp_run_btn", disabled=not cmp_question):
+        rt = get_runtime()
+        col_res_a, col_res_b = st.columns(2)
+        with col_res_a:
+            st.markdown("#### Contract A")
+            try:
+                with st.spinner("Analyzing Contract A…"):
+                    res_a = analyze(cmp_question, idx_a, rt, mode="question")
+                render_result(res_a, "Contract A", question=cmp_question)
+            except (LocalModelError, AnalysisError, ValueError, RuntimeError) as exc:
+                st.error(str(exc))
+        with col_res_b:
+            st.markdown("#### Contract B")
+            try:
+                with st.spinner("Analyzing Contract B…"):
+                    res_b = analyze(cmp_question, idx_b, rt, mode="question")
+                render_result(res_b, "Contract B", question=cmp_question)
+            except (LocalModelError, AnalysisError, ValueError, RuntimeError) as exc:
+                st.error(str(exc))
+elif idx_a or idx_b:
+    st.info("Index both Contract A and Contract B to enable comparison.")

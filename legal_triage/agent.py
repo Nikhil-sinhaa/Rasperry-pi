@@ -23,7 +23,7 @@ from typing import Any
 from .config import SETTINGS
 from .grounding import validate_findings
 from .local_runtime import LocalOllama
-from .retrieval import LocalIndex, retrieve_question, retrieve_triage, retrieve_triage_per_topic
+from .retrieval import LocalIndex, hybrid_retrieve_question, retrieve_question, retrieve_triage, retrieve_triage_per_topic
 from .types import Chunk
 
 # ---------------------------------------------------------------------------
@@ -415,7 +415,7 @@ def analyze(
             # Large document: one retrieval per topic, merge top chunks
             results, top_score = retrieve_triage_per_topic(index, runtime)
     else:
-        results, top_score = retrieve_question(index, question, runtime)
+        results, top_score = hybrid_retrieve_question(index, question, runtime)
 
     sources = _source_map(results)
 

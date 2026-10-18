@@ -27,6 +27,8 @@ htmlcov/
 data/cuad_eval/
 # Large data archives (download separately; see README)
 scripts/data.zip
+# Generated demo PDFs (regenerate with: python scripts/make_demo_pdfs.py)
+samples/pdfs/
 
 # Evidence outputs that contain machine-specific run data
 evidence/cuad-eval.json

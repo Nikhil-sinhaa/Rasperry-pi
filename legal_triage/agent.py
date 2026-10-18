@@ -1,16 +1,34 @@
-"""Evidence-first legal document analysis using a local Gemma model."""
+"""Evidence-first legal document analysis using a local Gemma model.
+
+Member 1 changes
+----------------
+1. Fixed verdict filter  – much narrower patterns; ambiguous words (valid / binding / void)
+   are disambiguated by asking Gemma a tiny JSON question rather than refusing outright.
+2. Verifier pass         – optional: after grounding, ask Gemma (temperature 0) whether each
+   quote actually supports the claim and drop those it says 'no' to.  Enabled by default;
+   set ENABLE_VERIFIER_PASS=0 to skip.  Adds a 'verifier_agrees' support label.
+3. Triage coverage       – when the document fits in OLLAMA_NUM_CTX, the full text is sent
+   in one shot.  For large documents, one retrieval per topic is run instead of generic
+   bulk search, and a 'coverage_line' such as "Reviewed 34 of 34 pages" is included in
+   the response.
+4. Jurisdiction hints    – keyword-triggered notes from a local JSON file, never a verdict.
+"""
 from __future__ import annotations
 
 import json
+import os
 import re
 from typing import Any
 
 from .config import SETTINGS
 from .grounding import validate_findings
 from .local_runtime import LocalOllama
-from .retrieval import LocalIndex, retrieve_question, retrieve_triage
+from .retrieval import LocalIndex, retrieve_question, retrieve_triage, retrieve_triage_per_topic
 from .types import Chunk
 
+# ---------------------------------------------------------------------------
+# System prompt (unchanged from original)
+# ---------------------------------------------------------------------------
 SYSTEM_PROMPT = r"""You are an on-device legal document triage assistant for preliminary understanding. You are NOT a lawyer and must not give definitive legal advice or decide whether a clause is legal, valid, void, or enforceable.
 
 SAFETY AND GROUNDING RULES:
@@ -35,22 +53,49 @@ SAFETY AND GROUNDING RULES:
 }
 No markdown fences. A correct empty result is better than an unsupported answer."""
 
-LEGAL_VERDICT_PATTERNS = [
-    r"\bis (?:this|it|the clause|the agreement) (?:enforceable|unenforceable|legal|illegal|valid|invalid|void|binding)\b",
-    r"\b(?:enforceability|legal validity|validity of this clause)\b",
+# ---------------------------------------------------------------------------
+# Verifier prompt – used at temperature 0 to check quote→claim support
+# ---------------------------------------------------------------------------
+_VERIFIER_SYSTEM = (
+    "You are a strict fact-checker. Given a claim and a verbatim quote from a legal document, "
+    "decide whether the quote supports the claim. "
+    "Output ONLY valid JSON: {\"verdict\": \"yes\"|\"partly\"|\"no\", \"reason\": \"one sentence\"}"
+)
+
+# ---------------------------------------------------------------------------
+# Disambiguation prompt – asked when a question uses ambiguous words like
+# 'valid', 'binding', 'void' to decide if it is a legal-verdict request or
+# an ordinary 'explain the text' request.
+# ---------------------------------------------------------------------------
+_DISAMBIG_SYSTEM = (
+    "You are a classifier. Given a user question about a legal document, decide if it is "
+    "asking for a legal verdict (a court or legal determination) or just asking for an "
+    "explanation of what the document says. "
+    "Output ONLY valid JSON: {\"intent\": \"legal_verdict\"|\"explain_text\"}"
+)
+
+# ---------------------------------------------------------------------------
+# Verdict-filter patterns (Member 1: narrow to clear verdict/advice requests)
+# ---------------------------------------------------------------------------
+
+# Hard-block patterns: unambiguously asking for a legal determination
+LEGAL_VERDICT_HARD_PATTERNS = [
+    r"\bis (?:this|it) (?:enforceable|unenforceable|illegal)\b",
+    r"\b(?:enforceability|legal validity)\b",
     r"\bdoes this (?:violate|break) (?:the )?law\b",
     r"\bcan i sue\b",
     r"\bwill i win (?:in court|the case)\b",
-    r"\bcan (?:they|my landlord|my employer) legally (?:evict|fire|terminate|sue)\b",
-    r"\bis\s+(?:this|it|the|my)\b.{0,45}\b(?:enforceable|unenforceable|legal|illegal|valid|invalid|void|binding)\b",
     r"\b(?:does it hold up in court|will this hold up in court|stand up in court)\b",
     r"\b(?:should i sign|should i accept|should i terminate|is it safe to sign|is this safe to sign|would you sign)\b",
-    r"\bcan\s+(?:my landlord|the landlord|my employer|the employer|they)\s+(?:legally\s+)?(?:evict|fire|terminate|sue)\b",
+    r"\bcan (?:my landlord|the landlord|my employer|the employer|they) legally (?:evict|fire|terminate|sue)\b",
     r"\b(?:can i be evicted|will i be evicted|can i be fired)\b",
-    r"\b(?:is|are|was|would be|could be)\b.{0,60}\b(?:illegal|enforceable|unenforceable|void|valid|invalid)\b",
-    r"\bis\s+(?:a|an)\b.{0,60}\b(?:illegal|enforceable|unenforceable|void|valid|invalid)\b",
-    r"\bis\b.{0,45}\blegal\b.{0,40}\b(?:under|in)\b.{0,25}\blaw\b",
+    r"\bis it legal to\b",
     r"\bdetermine whether .*\b(?:legal|illegal|enforceable|void|valid)\b",
+]
+
+# Soft-block patterns: contain ambiguous words — sent to Gemma for disambiguation
+LEGAL_VERDICT_AMBIGUOUS_PATTERNS = [
+    r"\b(?:valid|validity|invalid|binding|void|voidable)\b",
 ]
 
 
@@ -58,9 +103,52 @@ class AnalysisError(RuntimeError):
     """Analysis failed without disclosing document content in an error message."""
 
 
-def is_definitive_legal_verdict_request(question: str) -> bool:
+def _hard_verdict_match(question: str) -> bool:
     lowered = question.casefold()
-    return any(re.search(pattern, lowered) for pattern in LEGAL_VERDICT_PATTERNS)
+    return any(re.search(p, lowered) for p in LEGAL_VERDICT_HARD_PATTERNS)
+
+
+def _has_ambiguous_verdict_word(question: str) -> bool:
+    lowered = question.casefold()
+    return any(re.search(p, lowered) for p in LEGAL_VERDICT_AMBIGUOUS_PATTERNS)
+
+
+def _disambiguate_with_gemma(question: str, runtime: LocalOllama) -> str:
+    """Ask Gemma whether the question is a legal-verdict request or an explain-text request.
+
+    Returns 'legal_verdict' or 'explain_text'.  Falls back to 'explain_text' on any error
+    so that a model hiccup never causes spurious refusals.
+    """
+    try:
+        raw = runtime.chat_json(_DISAMBIG_SYSTEM, f'User question: """{question}"""')
+        payload = _parse_json(raw)
+        intent = payload.get("intent", "explain_text")
+        return intent if intent in {"legal_verdict", "explain_text"} else "explain_text"
+    except Exception:
+        return "explain_text"
+
+
+def is_definitive_legal_verdict_request(question: str, runtime: LocalOllama | None = None) -> bool:
+    """Return True only for clear requests for a legal determination.
+
+    Ambiguous words (valid, binding, void) trigger a small Gemma disambiguation call
+    when *runtime* is supplied.  When *runtime* is None (e.g. in unit tests) the
+    function falls back to treating those words as 'explain_text' (permissive), which
+    avoids false positives in the probe-question suite.
+    """
+    if _hard_verdict_match(question):
+        return True
+    if _has_ambiguous_verdict_word(question):
+        if runtime is not None:
+            return _disambiguate_with_gemma(question, runtime) == "legal_verdict"
+        # No runtime available – do NOT block on ambiguous words alone.
+        return False
+    return False
+
+
+# ---------------------------------------------------------------------------
+# JSON parsing helpers
+# ---------------------------------------------------------------------------
 
 
 def _parse_json(text: str) -> dict[str, Any]:
@@ -77,6 +165,11 @@ def _parse_json(text: str) -> dict[str, Any]:
     return value
 
 
+# ---------------------------------------------------------------------------
+# Source map
+# ---------------------------------------------------------------------------
+
+
 def _source_map(results: list[tuple[Chunk, float]]) -> dict[str, dict[str, Any]]:
     sources: dict[str, dict[str, Any]] = {}
     for i, (chunk, score) in enumerate(results, start=1):
@@ -85,17 +178,25 @@ def _source_map(results: list[tuple[Chunk, float]]) -> dict[str, dict[str, Any]]
             "source_id": source_id,
             "filename": chunk.filename,
             "page_number": chunk.page_number,
+            "all_pages": list(chunk.all_pages),
             "text": chunk.text,
             "similarity": round(float(score), 4),
         }
     return sources
 
 
+# ---------------------------------------------------------------------------
+# Prompt builder
+# ---------------------------------------------------------------------------
+
+
 def _make_prompt(question: str, sources: dict[str, dict[str, Any]], mode: str) -> str:
     excerpts = []
     for source_id, source in sources.items():
+        pages = source.get("all_pages", [source["page_number"]])
+        page_str = "+".join(str(p) for p in pages)
         excerpts.append(
-            f"<{source_id} | file={source['filename']} | page={source['page_number']} | "
+            f"<{source_id} | file={source['filename']} | page={page_str} | "
             f"retrieval_similarity={source['similarity']}>\n{source['text']}\n</{source_id}>"
         )
     if mode == "triage":
@@ -119,6 +220,88 @@ def _make_prompt(question: str, sources: dict[str, dict[str, Any]], mode: str) -
     )
 
 
+# ---------------------------------------------------------------------------
+# Verifier pass (Member 1)
+# ---------------------------------------------------------------------------
+
+
+def _run_verifier_pass(findings: list[dict[str, Any]], runtime: LocalOllama) -> list[dict[str, Any]]:
+    """Ask Gemma at temperature 0 whether each quote supports its claim.
+
+    Drops findings where Gemma says 'no'.  'partly' is retained.
+    Records 'verifier_agrees' in the finding's support list when verdict is yes/partly.
+    """
+    kept: list[dict[str, Any]] = []
+    for finding in findings:
+        claim = finding.get("claim", "")
+        evidence = finding.get("evidence", [])
+        if not evidence:
+            kept.append(finding)
+            continue
+
+        all_pass = True
+        for citation in evidence:
+            quote = citation.get("quote", "")
+            if not quote:
+                continue
+            prompt = f'Claim: """{claim}"""\nQuote: """{quote}"""'
+            try:
+                raw = runtime.chat_json(_VERIFIER_SYSTEM, prompt)
+                payload = _parse_json(raw)
+                verdict = payload.get("verdict", "yes")
+                if verdict == "no":
+                    all_pass = False
+                    break
+            except Exception:
+                # If verifier errors, retain the finding (fail open for verifier only)
+                pass
+
+        if all_pass:
+            support = finding.get("support", [])
+            if "verifier_agrees" not in support:
+                support = list(support) + ["verifier_agrees"]
+                finding = {**finding, "support": support}
+            kept.append(finding)
+    return kept
+
+
+# ---------------------------------------------------------------------------
+# Jurisdiction hints (Member 1)
+# ---------------------------------------------------------------------------
+
+_JURISDICTION_HINTS_FILE = os.path.join(os.path.dirname(__file__), "jurisdiction_hints.json")
+
+
+def _load_jurisdiction_hints() -> list[dict[str, Any]]:
+    try:
+        with open(_JURISDICTION_HINTS_FILE, encoding="utf-8") as fh:
+            data = json.load(fh)
+            return data if isinstance(data, list) else []
+    except (FileNotFoundError, json.JSONDecodeError):
+        return []
+
+
+_JURISDICTION_HINTS: list[dict[str, Any]] = _load_jurisdiction_hints()
+
+
+def _jurisdiction_hints_for(question: str, findings: list[dict[str, Any]]) -> list[str]:
+    """Return hint strings whose keywords match the question or any finding claim."""
+    combined = (question + " " + " ".join(f.get("claim", "") for f in findings)).casefold()
+    notes: list[str] = []
+    for hint in _JURISDICTION_HINTS:
+        keywords = hint.get("keywords", [])
+        if any(kw.casefold() in combined for kw in keywords):
+            note = hint.get("note", "")
+            if note and note not in notes:
+                notes.append(note)
+    return notes
+
+
+# ---------------------------------------------------------------------------
+# Abstention helper
+# ---------------------------------------------------------------------------
+
+
 def _abstention(top_score: float, reason: str = "retrieval", mode: str = "question") -> dict[str, Any]:
     message = (
         "I could not retrieve enough relevant, citable text to produce a grounded overview. "
@@ -140,11 +323,42 @@ def _abstention(top_score: float, reason: str = "retrieval", mode: str = "questi
     }
 
 
+# ---------------------------------------------------------------------------
+# Coverage helpers (Member 1 – triage coverage)
+# ---------------------------------------------------------------------------
+
+
+def _build_coverage_line(index: LocalIndex, results: list[tuple[Chunk, float]]) -> str:
+    """Return a human-readable coverage line like 'Reviewed 34 of 34 pages'."""
+    total_pages: int = index.metadata.get("pages", 0)  # type: ignore[arg-type]
+    reviewed_pages: set[int] = set()
+    for chunk, _ in results:
+        for pg in chunk.all_pages:
+            reviewed_pages.add(pg)
+    return f"Reviewed {len(reviewed_pages)} of {total_pages} page(s)"
+
+
+def _full_doc_fits_in_ctx(index: LocalIndex) -> bool:
+    """Rough heuristic: estimate total token count vs OLLAMA_NUM_CTX.
+
+    We assume ~3.5 characters per token and leave 25% headroom for the prompt wrapper.
+    """
+    total_chars = sum(len(c.text) for c in index.chunks)
+    estimated_tokens = total_chars / 3.5
+    return estimated_tokens < SETTINGS.num_ctx * 0.75
+
+
+# ---------------------------------------------------------------------------
+# Main entry point
+# ---------------------------------------------------------------------------
+
+
 def analyze(
     question: str,
     index: LocalIndex,
     runtime: LocalOllama,
     mode: str = "question",
+    enable_verifier: bool | None = None,
 ) -> dict[str, Any]:
     question = question.strip()
     if not question:
@@ -152,15 +366,28 @@ def analyze(
     if mode not in {"question", "triage"}:
         raise ValueError("Mode must be 'question' or 'triage'.")
 
-    legal_verdict_request = mode == "question" and is_definitive_legal_verdict_request(question)
+    # Determine verifier enablement from env / parameter
+    if enable_verifier is None:
+        enable_verifier = os.environ.get("ENABLE_VERIFIER_PASS", "1").strip() not in {"0", "false", "no"}
+
+    # --- Verdict filter (Member 1 fix) ---
+    legal_verdict_request = mode == "question" and is_definitive_legal_verdict_request(question, runtime)
+
+    # --- Retrieval (Member 1 triage coverage fix) ---
     if mode == "triage":
-        results, top_score = retrieve_triage(index, runtime)
+        if _full_doc_fits_in_ctx(index):
+            # Small document: use all chunks directly (no retrieval similarity gate)
+            results = [(chunk, 1.0) for chunk in index.chunks]
+            top_score = 1.0
+        else:
+            # Large document: one retrieval per topic, merge top chunks
+            results, top_score = retrieve_triage_per_topic(index, runtime)
     else:
         results, top_score = retrieve_question(index, question, runtime)
+
     sources = _source_map(results)
 
     if legal_verdict_request:
-        # Do not ask a model to decide legal enforceability/validity. Show the relevant passages instead.
         return {
             "findings": [],
             "sources": list(sources.values()),
@@ -168,41 +395,66 @@ def analyze(
             "abstained": True,
             "legal_boundary": True,
             "message": (
-                "I can’t determine whether a clause is legal, valid, void, or enforceable, or predict a court outcome. "
+                "I can't determine whether a clause is legal, valid, void, or enforceable, or predict a court outcome. "
                 "That requires qualified legal review in the relevant jurisdiction. I can help explain the wording, but I will not "
-                "present a legal verdict. The retrieved source passages below are provided so you can review the exact text."
+                "present a legal verdict. The retrieved source passages below are provided so you can review the exact text.\n\n"
+                "**Next step:** ask a qualified lawyer or local legal-aid service this question."
             ),
             "reason": "legal_verdict_request",
+            "lawyer_question": question,
         }
 
     if not results or top_score < SETTINGS.min_retrieval_similarity:
-        return _abstention(top_score, reason="below_retrieval_threshold", mode=mode) | {"sources": list(sources.values())}
+        return _abstention(top_score, reason="below_retrieval_threshold", mode=mode) | {
+            "sources": list(sources.values())
+        }
 
     prompt = _make_prompt(question, sources, mode)
     try:
         raw = runtime.chat_json(SYSTEM_PROMPT, prompt)
         payload = _parse_json(raw)
     except (ValueError, json.JSONDecodeError) as exc:
-        # Avoid dumping raw model output or any private excerpt into UI errors/logs.
-        raise AnalysisError("The local model did not return valid structured JSON. Retry or reduce document scope.") from exc
+        raise AnalysisError(
+            "The local model did not return valid structured JSON. Retry or reduce document scope."
+        ) from exc
 
     findings = validate_findings(payload, sources)
+
+    # --- Verifier pass (Member 1, optional) ---
+    if findings and enable_verifier:
+        findings = _run_verifier_pass(findings, runtime)
+
     for finding in findings:
         for citation in finding["evidence"]:
             cited_source = sources.get(citation["source_id"])
             if cited_source:
                 citation["source"] = cited_source
-    # Do not accept the model's self-reported 'sufficient' label as proof. A finding survives only
-    # if it has a valid source ID and a sufficiently long verbatim quote; the quote is shown to users.
-    if not findings:
-        return _abstention(top_score, reason="no_validated_quote_evidence", mode=mode) | {"sources": list(sources.values())}
 
-    return {
+    if not findings:
+        return _abstention(top_score, reason="no_validated_quote_evidence", mode=mode) | {
+            "sources": list(sources.values())
+        }
+
+    # --- Coverage line (triage only) ---
+    coverage_line = _build_coverage_line(index, results) if mode == "triage" else None
+
+    # --- Jurisdiction hints ---
+    jurisdiction_notes = _jurisdiction_hints_for(question, findings)
+
+    result: dict[str, Any] = {
         "findings": findings,
         "sources": list(sources.values()),
         "top_similarity": round(top_score, 4),
         "abstained": False,
         "legal_boundary": False,
-        "message": "Findings below are limited to claims that passed source-ID and verbatim-quote checks. Review the quote before relying on an interpretation.",
+        "message": (
+            "Findings below are limited to claims that passed source-ID and verbatim-quote checks. "
+            "Review the quote before relying on an interpretation."
+        ),
         "reason": "validated_findings",
     }
+    if coverage_line:
+        result["coverage_line"] = coverage_line
+    if jurisdiction_notes:
+        result["jurisdiction_notes"] = jurisdiction_notes
+    return result

@@ -1,0 +1,42 @@
+[
+  {
+    "topic": "deposit_limits",
+    "keywords": ["security deposit", "deposit amount", "advance deposit", "refundable deposit"],
+    "note": "**Jurisdiction note:** Deposit limits (e.g. maximum months' rent) often vary by local law. This often depends on local law; ask a local lawyer what the permitted deposit cap is in your area."
+  },
+  {
+    "topic": "notice_periods",
+    "keywords": ["notice period", "days notice", "months notice", "vacate notice", "eviction notice"],
+    "note": "**Jurisdiction note:** Minimum notice periods for tenancy termination or eviction are frequently set by local tenancy law and may override what the agreement says. Ask a local lawyer about the statutory minimum in your jurisdiction."
+  },
+  {
+    "topic": "rent_control",
+    "keywords": ["rent increase", "annual increase", "rent hike", "escalation clause", "rental escalation"],
+    "note": "**Jurisdiction note:** Rent increase caps (rent control / rent stabilisation) vary widely by city and state. This often depends on local law; ask a local lawyer whether a cap applies to your tenancy."
+  },
+  {
+    "topic": "registration_stamp_duty",
+    "keywords": ["registration", "stamp duty", "registered agreement", "notarised", "notarized"],
+    "note": "**Jurisdiction note:** Requirements for registering a lease or paying stamp duty differ by state and lease duration. This often depends on local law; ask a local lawyer or sub-registrar's office what applies in your area."
+  },
+  {
+    "topic": "non_compete",
+    "keywords": ["non-compete", "non compete", "non-solicitation", "restraint of trade", "non-solicitation clause"],
+    "note": "**Jurisdiction note:** The enforceability of non-compete and non-solicitation clauses varies significantly by jurisdiction and may be limited or unenforceable in some places. Ask a local lawyer before signing."
+  },
+  {
+    "topic": "interest_rate",
+    "keywords": ["interest rate", "late payment interest", "penal interest", "default interest"],
+    "note": "**Jurisdiction note:** Maximum permissible interest rates on arrears or penalties are often regulated by local law. This often depends on local law; ask a local lawyer what the applicable limit is."
+  },
+  {
+    "topic": "arbitration",
+    "keywords": ["arbitration", "arbitral", "dispute resolution", "arbitrator"],
+    "note": "**Jurisdiction note:** Arbitration clauses may have seat, rules and enforceability implications that depend on the governing law and location of the parties. Ask a local lawyer whether the agreed arbitration forum applies to you."
+  },
+  {
+    "topic": "employment_termination",
+    "keywords": ["termination for cause", "without cause termination", "severance", "redundancy", "retrenchment"],
+    "note": "**Jurisdiction note:** Statutory notice pay, severance entitlements and grounds for dismissal are regulated differently in each jurisdiction. This often depends on local law; ask a local labour lawyer what minimum protections apply."
+  }
+]

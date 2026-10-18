@@ -1,0 +1,26 @@
+# Actual test environment — fill after running the project
+
+- Date/time of test:
+- OS/distribution and version:
+- Python version:
+- Streamlit version (`python -m pip show streamlit`):
+- pypdf version:
+- NumPy version:
+- Ollama version (`ollama --version`):
+- Gemma model tag (`ollama list`):
+- Embedding model tag (`ollama list`):
+- Quantization (from model details/tag):
+- CPU:
+- GPU and VRAM:
+- System RAM:
+- Demo document and number of pages:
+- Time to ingest/embed document:
+- Time for first answer:
+- Time for follow-up answer:
+- `ollama ps` processor allocation:
+- Unit tests command and exact result:
+- Model-backed evaluation command and exact result:
+- Network-monitor command, interfaces covered, time window, and exact result:
+- Was Wi-Fi off / was networking disabled? State exactly how verified:
+- Failures observed and fixes/retest results:
+- Known limitations for this environment:

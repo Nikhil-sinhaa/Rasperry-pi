@@ -146,7 +146,7 @@ Model terms are separate from this repository's MIT licence. Keep the model's ow
 ### 3. Install Python dependencies
 
 ```bash
-cd ps2_legal_triage
+cd Rasperry-pi
 python3.11 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip

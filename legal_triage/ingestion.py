@@ -8,17 +8,80 @@ Member 3 additions
   matches the verbatim text stored in a chunk.
 * _normalize_hyphenation() – strips soft-hyphen line-break artifacts (e.g. "agree-\nment"
   → "agreement") that some PDF extractors produce in multi-column layouts.
+
+P1-3 additions
+--------------
+* scan_for_injection()     – detect instruction-like text in document content;
+  returns a list of warning strings so the UI can show a banner.
+* Zero-width and invisible character stripping before chunking.
 """
 from __future__ import annotations
 
 import io
 import re
+import unicodedata
 from pathlib import PurePath
 
 from pypdf import PdfReader
 
 from .config import SETTINGS
 from .types import Chunk
+
+# ---------------------------------------------------------------------------
+# Prompt injection scanner (P1-3)
+# ---------------------------------------------------------------------------
+
+# Patterns that look like instructions to an AI in document text
+_INJECTION_PATTERNS = [
+    re.compile(p, re.IGNORECASE) for p in [
+        r"\bignore\s+(?:previous|all|prior|the\s+above)\s+(?:instructions?|rules?|guidelines?|prompts?)\b",
+        r"\byou\s+are\s+now\b",
+        r"\bdisregard\s+(?:previous|all|prior)\s+(?:instructions?|rules?)\b",
+        r"\bsystem\s+prompt\b",
+        r"\bdo\s+not\s+cite\b",
+        r"\bdo\s+not\s+use\s+(?:the\s+)?(?:document|source)\b",
+        r"\bnew\s+instructions?\s*[:\.]",
+        r"\bAI\s*(?:assistant|model|system)\s*[,:]\s*\b",
+        r"\bassistant\s*(?:mode|instructions?)\s*[:\.]",
+        r"</E\d+>",   # attempt to close an excerpt tag from within content
+        r"</?(?:system|assistant|user|instruction)\b",  # XML-like role tags
+    ]
+]
+
+# Zero-width and invisible Unicode characters that can hide injection content
+_INVISIBLE_RE = re.compile(
+    r"[​‌‍‎‏﻿‪-‮⁠-⁯]"
+)
+
+
+def scan_for_injection(text: str) -> list[str]:
+    """Scan extracted document text for instruction-like or injection-style content.
+
+    Returns a list of warning strings (empty if nothing suspicious found).
+    The warnings are displayed as a banner in the UI; the text is still analysed
+    (content is never silently dropped).
+    """
+    warnings: list[str] = []
+    lower = text.casefold()
+    for pattern in _INJECTION_PATTERNS:
+        if pattern.search(lower):
+            warnings.append(
+                f"This document contains text that resembles an instruction to an AI "
+                f"(matched pattern: {pattern.pattern!r}). "
+                "The text is treated as ordinary document content and analysed normally."
+            )
+            break  # one banner is enough
+    if _INVISIBLE_RE.search(text):
+        warnings.append(
+            "This document contains invisible or zero-width Unicode characters "
+            "(common in injection attacks). They were removed before analysis."
+        )
+    return warnings
+
+
+def _strip_invisible(text: str) -> str:
+    """Remove zero-width and directional-override Unicode characters."""
+    return _INVISIBLE_RE.sub("", text)
 
 # ---------------------------------------------------------------------------
 # Text normalisation helpers (Member 3)
@@ -123,7 +186,7 @@ def _page_texts(filename: str, content: bytes) -> tuple[list[tuple[int, str]], l
             raise IngestionError(f"{filename}: text files must be UTF-8 encoded.") from exc
         if not text.strip():
             raise IngestionError(f"{filename}: no readable text was found.")
-        text = _normalize_ligatures(_normalize_hyphenation(text))
+        text = _strip_invisible(_normalize_ligatures(_normalize_hyphenation(text)))
         return [(1, text)], warnings, 1
 
     # -----------------------------------------------------------------------
@@ -132,6 +195,7 @@ def _page_texts(filename: str, content: bytes) -> tuple[list[tuple[int, str]], l
     if lower_name.endswith(".docx"):
         try:
             import docx as _docx  # python-docx; lazy so missing package gives a clear error
+            from docx.oxml.ns import qn as _qn  # noqa: PLC0415
         except ImportError as exc:
             raise IngestionError(
                 f"{filename}: python-docx is required to read .docx files. "
@@ -143,21 +207,34 @@ def _page_texts(filename: str, content: bytes) -> tuple[list[tuple[int, str]], l
             raise IngestionError(
                 f"{filename}: the DOCX file could not be opened ({type(exc).__name__})."
             ) from exc
-        paragraphs = [para.text for para in doc.paragraphs if para.text.strip()]
-        # Also extract text from tables
-        for table in doc.tables:
-            for row in table.rows:
-                for cell in row.cells:
-                    cell_text = cell.text.strip()
-                    if cell_text:
-                        paragraphs.append(cell_text)
-        if not paragraphs:
+
+        # Walk the document body in document order (paragraphs AND tables interleaved).
+        # python-docx's doc.paragraphs and doc.tables are separate lists that lose the
+        # relative ordering of tables within the text flow.
+        blocks: list[str] = []
+        for child in doc.element.body:
+            tag = child.tag.split("}")[-1] if "}" in child.tag else child.tag
+            if tag == "p":
+                # Paragraph element
+                para = _docx.text.paragraph.Paragraph(child, doc)
+                text = para.text.strip()
+                if text:
+                    blocks.append(text)
+            elif tag == "tbl":
+                # Table element — extract cell text row by row
+                tbl = _docx.table.Table(child, doc)
+                for row in tbl.rows:
+                    row_texts = [cell.text.strip() for cell in row.cells if cell.text.strip()]
+                    if row_texts:
+                        blocks.append(" | ".join(row_texts))
+
+        if not blocks:
             raise IngestionError(
                 f"{filename}: the DOCX file contains no readable text. "
                 "Check that the document is not empty or password-protected."
             )
-        full_text = "\n\n".join(paragraphs)
-        full_text = _normalize_ligatures(_normalize_hyphenation(full_text))
+        full_text = "\n\n".join(blocks)
+        full_text = _strip_invisible(_normalize_ligatures(_normalize_hyphenation(full_text)))
         return [(1, full_text)], warnings, 1
 
     if not lower_name.endswith(".pdf"):
@@ -191,7 +268,7 @@ def _page_texts(filename: str, content: bytes) -> tuple[list[tuple[int, str]], l
         except Exception:
             text = ""
         # Apply ligature and hyphenation normalisation at extraction time
-        text = _normalize_ligatures(_normalize_hyphenation(text))
+        text = _strip_invisible(_normalize_ligatures(_normalize_hyphenation(text)))
         if text.strip():
             pages.append((page_number, text))
         else:
@@ -240,6 +317,13 @@ def ingest_files(files: list[tuple[str, bytes]]) -> tuple[list[Chunk], dict[str,
         text_pages += len(pages)
         if total_pages > SETTINGS.max_pages:
             raise IngestionError(f"The upload exceeds the configured limit of {SETTINGS.max_pages} total pages.")
+
+        # Injection pre-scan: check full extracted text for embedded instructions
+        full_extracted = "\n".join(text for _, text in pages)
+        injection_warnings = scan_for_injection(full_extracted)
+        if injection_warnings:
+            warnings.extend(f"{filename}: {w}" for w in injection_warnings)
+
         filenames.append(filename)
         for page_number, page_text in pages:
             for chunk_number, text in enumerate(

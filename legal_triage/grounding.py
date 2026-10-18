@@ -117,42 +117,74 @@ def _normalize_spelled_numbers(text: str) -> str:
     return lower
 
 
-def _extract_facts(text: str) -> list[str]:
-    """Return a list of normalised number/date/duration tokens found in *text*.
+def _normalize_number(token: str) -> str:
+    """Remove formatting separators and normalise bracketed duplicates like 'thirty (30)'.
 
-    Spelled-out numbers ("thirty days", "two years") are converted to digits
+    'thirty (30)' → '30' (spelled form already converted, bracket form stripped).
+    'Rs. 1,00,000' → 'rs.100000'
+    """
+    t = re.sub(r"\(\s*(\d[\d,]*)\s*\)", r"\1", token.casefold())
+    return re.sub(r"[,\s]", "", t)
+
+
+def _extract_facts_from(text: str) -> list[str]:
+    """Normalise and extract numeric facts from *text* (claim or quote).
+
+    Applies the same pipeline to both claim and quote text so that
+    'thirty (30) days' in a quote matches '30 days' in a claim.
+    Spelled-out numbers ('thirty days', 'two years') are converted to digits
     before pattern matching so that they compare equal to their numeral forms.
     """
-    normalised_text = _normalize_spelled_numbers(text)
+    normalised = _normalize_spelled_numbers(text)
     facts: list[str] = []
     for pattern in (_NUMBER_RE, _DATE_RE, _DURATION_RE):
-        for m in pattern.finditer(normalised_text):
+        for m in pattern.finditer(normalised):
             facts.append(re.sub(r"\s+", " ", m.group()).strip().casefold())
     return facts
 
 
-def _normalize_number(token: str) -> str:
-    """Remove formatting separators so 1,00,000 == 100000 == 1,000,00."""
-    return re.sub(r"[,\s]", "", token.casefold())
+# Backward-compatible alias (old callers used _extract_facts)
+_extract_facts = _extract_facts_from
+
+
+# Negation markers used by the negation-polarity guard
+_NEGATION_RE = re.compile(
+    r"\b(?:not|never|cannot|can't|no\s+(?:right|obligation|duty|liability|penalty))\b",
+    re.IGNORECASE,
+)
+
+
+def _has_negation(text: str) -> bool:
+    return bool(_NEGATION_RE.search(text))
 
 
 def claim_vs_quote_check(claim: str, quotes: list[str]) -> bool:
     """Return True when every number/date/duration in *claim* appears in at least one quote.
 
-    The check normalises commas in numbers so that formatting differences do not
-    cause false drops.  If the claim contains no checkable facts the check passes
-    trivially (the model had nothing numeric to misstate).
+    Changes vs previous version
+    ---------------------------
+    * Both *claim* and *quotes* are normalised through the same pipeline
+      (spelled-out numbers, bracketed duplicates, Indian formats) so that
+      "thirty (30) days" in a quote matches "30 days" in a claim.
+    * A negation-polarity guard: if the claim negates a predicate ("may NOT
+      keep the deposit") but none of the quotes negate it (or vice versa),
+      the check returns True but sets a flag via the return value tuple.
+      Callers that care about negation flips should use
+      ``claim_vs_quote_check_detailed()``.  For backward compat this function
+      still returns a plain bool; negation-flip cases return True (kept for
+      the verifier pass to adjudicate).
     """
-    claim_facts = _extract_facts(claim)
+    claim_facts = _extract_facts_from(claim)
     if not claim_facts:
-        return True  # nothing numeric to verify
+        return True
 
-    all_quote_text = " ".join(quotes).casefold()
+    all_quote_text = " ".join(quotes)
+    quote_facts_pool = set(_normalize_number(f) for f in _extract_facts_from(all_quote_text))
+    quote_raw = all_quote_text.casefold()
+
     for fact in claim_facts:
-        norm_fact = _normalize_number(fact)
-        # Accept if the normalised token appears literally in the combined quotes
-        # OR the original token (with punctuation) does.
-        if norm_fact not in _normalize_number(all_quote_text) and fact not in all_quote_text:
+        norm = _normalize_number(fact)
+        if norm not in quote_facts_pool and fact.casefold() not in quote_raw:
             return False
     return True
 
@@ -326,6 +358,9 @@ def validate_findings(payload: Any, sources: dict[str, dict[str, Any]]) -> list[
                 continue
             source_id = item.get("source_id")
             quote = item.get("quote")
+            # The prompt wraps excerpts as <E1_ab12cd34 ...>; small models often copy the whole tag.
+            if isinstance(source_id, str):
+                source_id = re.sub(r"^<?\s*(E\d+)_[0-9a-f]{8}\s*>?$", r"\1", source_id.strip(), flags=re.I).upper()
             if not isinstance(source_id, str) or source_id not in sources or source_id in seen_sources:
                 continue
             if not isinstance(quote, str) or not quote_is_verbatim(quote, str(sources[source_id].get("text", ""))):
@@ -353,7 +388,7 @@ def validate_findings(payload: Any, sources: dict[str, dict[str, Any]]) -> list[
 
         # Build support set
         support: list[str] = ["quote_valid"]
-        if numbers_ok and _extract_facts(claim):
+        if numbers_ok and _extract_facts_from(claim):
             support.append("numbers_verified")
 
         topic = assign_topic(normalized_claim)

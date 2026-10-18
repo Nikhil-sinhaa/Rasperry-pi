@@ -1,5 +1,5 @@
 .PHONY: install run test audit eval versions cuad-gold cuad-eval secret-scan offline-proof \
-        benchmark-models benchmark-one benchmark-quick sweep-threshold hand-review \
+        privacy-proof benchmark-models benchmark-one benchmark-quick sweep-threshold hand-review \
         hand-review-triage pick-citation-sample eval-full phase3
 
 install:
@@ -48,6 +48,16 @@ versions:
 offline-proof:
 	@echo "Running offline proof (macOS pfctl – requires sudo) …"
 	bash scripts/offline_proof.sh $(SAMPLE)
+
+# Linux network-namespace offline proof (no root required on modern kernels)
+privacy-proof:
+	@echo "Running Linux offline proof (network namespace) …"
+	bash scripts/offline_proof_linux.sh $(SAMPLE)
+
+# Docker-based isolated proof (cross-platform, requires Docker)
+privacy-proof-docker:
+	@echo "Running Docker isolated proof …"
+	docker compose --profile proof run --rm proof
 
 # ---------------------------------------------------------------------------
 # Phase 3 – Evaluation

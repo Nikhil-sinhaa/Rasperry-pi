@@ -194,5 +194,90 @@ class TestStaticAuditDetectsGuard(unittest.TestCase):
         )
 
 
+class TestExtendedEgressMethods(unittest.TestCase):
+    """Verify connect_ex, sendto, getaddrinfo, and create_connection are guarded."""
+
+    def test_connect_ex_blocked_for_public_ip(self) -> None:
+        """connect_ex() to a public IP must raise RuntimeError (not return an error code)."""
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            with self.assertRaises(RuntimeError) as ctx:
+                sock.connect_ex(("8.8.8.8", 80))
+            self.assertIn("Egress blocked", str(ctx.exception))
+        finally:
+            sock.close()
+
+    def test_connect_ex_loopback_passes(self) -> None:
+        """connect_ex() to loopback must be allowed through (OS will refuse the port)."""
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(0.5)
+        try:
+            # Returns errno rather than raising on loopback refusal (ECONNREFUSED = 111).
+            # If the guard incorrectly blocks it, RuntimeError is raised instead.
+            result = sock.connect_ex(("127.0.0.1", 1))
+            # Any errno is fine here – we just want no RuntimeError from the guard.
+            self.assertIsInstance(result, int)
+        except RuntimeError:
+            self.fail("connect_ex() to 127.0.0.1 was incorrectly blocked by the guard.")
+        finally:
+            sock.close()
+
+    def test_sendto_blocked_for_public_ip(self) -> None:
+        """sendto() UDP datagrams to a public IP must raise RuntimeError."""
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            with self.assertRaises(RuntimeError) as ctx:
+                sock.sendto(b"ping", ("8.8.8.8", 53))
+            self.assertIn("Egress blocked", str(ctx.exception))
+        finally:
+            sock.close()
+
+    def test_sendto_loopback_passes(self) -> None:
+        """sendto() to loopback must not be blocked by the guard."""
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.settimeout(0.5)
+        try:
+            # Will likely fail with ConnectionRefusedError or similar – not RuntimeError.
+            sock.sendto(b"ping", ("127.0.0.1", 1))
+        except RuntimeError:
+            self.fail("sendto() to 127.0.0.1 was incorrectly blocked by the guard.")
+        except OSError:
+            pass  # expected – the guard allowed it through, OS refused
+        finally:
+            sock.close()
+
+    def test_getaddrinfo_blocked_for_external_hostname(self) -> None:
+        """DNS resolution for a non-loopback host must raise RuntimeError."""
+        with self.assertRaises(RuntimeError) as ctx:
+            socket.getaddrinfo("example.com", 80)
+        self.assertIn("Egress blocked", str(ctx.exception))
+        self.assertIn("example.com", str(ctx.exception))
+
+    def test_getaddrinfo_loopback_passes(self) -> None:
+        """DNS resolution for loopback hosts must be allowed."""
+        for host in ("127.0.0.1", "localhost"):
+            try:
+                result = socket.getaddrinfo(host, 80)
+                self.assertTrue(len(result) > 0)
+            except RuntimeError:
+                self.fail(f"getaddrinfo({host!r}) was incorrectly blocked by the guard.")
+
+    def test_create_connection_blocked_for_public_ip(self) -> None:
+        """socket.create_connection() to a public IP must raise RuntimeError."""
+        with self.assertRaises(RuntimeError) as ctx:
+            socket.create_connection(("8.8.8.8", 80), timeout=0.5)
+        self.assertIn("Egress blocked", str(ctx.exception))
+
+    def test_create_connection_loopback_raises_os_error(self) -> None:
+        """socket.create_connection() to loopback must not be blocked by the guard
+        (the OS will raise ConnectionRefusedError or similar on port 1)."""
+        try:
+            socket.create_connection(("127.0.0.1", 1), timeout=0.5)
+        except RuntimeError:
+            self.fail("create_connection() to 127.0.0.1 was incorrectly blocked by the guard.")
+        except OSError:
+            pass  # expected
+
+
 if __name__ == "__main__":
     unittest.main()

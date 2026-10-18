@@ -51,39 +51,84 @@ def _is_loopback(host: str) -> bool:
 
 
 def install_egress_guard() -> None:
-    """Monkey-patch ``socket.socket.connect`` to block non-loopback destinations.
+    """Monkey-patch socket methods to block non-loopback destinations.
 
-    After this function returns, any attempt by the Python process to open a
-    TCP (or UDP) connection to a non-loopback address will raise a
-    ``RuntimeError``.
+    Covered methods (defence in depth; OS-level isolation is the primary proof):
+    - socket.socket.connect       (TCP connections)
+    - socket.socket.connect_ex    (non-raising TCP connect)
+    - socket.socket.sendto        (UDP datagrams to an address)
+    - socket.socket.sendmsg       (sendmsg with address argument)
+    - socket.getaddrinfo          (DNS resolution)
+    - socket.create_connection    (high-level helper used by requests/urllib)
 
     The patch is idempotent: calling it a second time is a no-op.
+
+    Note: this guard covers only the Python process.  The Ollama *server* process
+    has its own isolation requirements (OLLAMA_NO_CLOUD=1, OLLAMA_HOST=127.0.0.1:11434)
+    that must be configured separately before launching the server.
     """
     global _EGRESS_GUARD_INSTALLED  # noqa: PLW0603
     if _EGRESS_GUARD_INSTALLED:
         return
 
     _original_connect = socket.socket.connect
+    _original_connect_ex = socket.socket.connect_ex
+    _original_sendto = socket.socket.sendto
+    _original_getaddrinfo = socket.getaddrinfo
+    _original_create_connection = socket.create_connection
 
-    def _guarded_connect(self: socket.socket, address: object) -> None:  # type: ignore[override]
-        """Intercept connect() and raise for non-loopback destinations."""
-        host: str = ""
-        if isinstance(address, (tuple, list)) and len(address) >= 1:
-            # AF_INET: (host, port); AF_INET6: (host, port, flow, scope)
-            host = str(address[0])
-        elif isinstance(address, str):
-            # AF_UNIX path or bare string – allow (Unix socket is local by definition).
-            return _original_connect(self, address)
+    def _check_host(host: str, method: str) -> None:
         if host and not _is_loopback(host):
             raise RuntimeError(
-                f"Egress blocked: the Python process attempted to connect to "
+                f"Egress blocked: the Python process attempted {method}() to "
                 f"non-loopback address '{host}'. "
                 "All network access must stay on 127.0.0.1/localhost (Python process). "
                 "Ensure OLLAMA_HOST=127.0.0.1:11434 is set for the Ollama server process."
             )
+
+    def _guarded_connect(self: socket.socket, address: object) -> None:  # type: ignore[override]
+        host: str = ""
+        if isinstance(address, (tuple, list)) and len(address) >= 1:
+            host = str(address[0])
+        elif isinstance(address, str):
+            return _original_connect(self, address)
+        _check_host(host, "connect")
         return _original_connect(self, address)
 
+    def _guarded_connect_ex(self: socket.socket, address: object) -> int:  # type: ignore[override]
+        host: str = ""
+        if isinstance(address, (tuple, list)) and len(address) >= 1:
+            host = str(address[0])
+        elif isinstance(address, str):
+            return _original_connect_ex(self, address)
+        _check_host(host, "connect_ex")
+        return _original_connect_ex(self, address)
+
+    def _guarded_sendto(self: socket.socket, data: bytes, *args: object) -> int:  # type: ignore[override]
+        # sendto(data, address) or sendto(data, flags, address)
+        address = args[-1] if args else None
+        if isinstance(address, (tuple, list)) and len(address) >= 1:
+            _check_host(str(address[0]), "sendto")
+        return _original_sendto(self, data, *args)
+
+    def _guarded_getaddrinfo(host: object, *args: object, **kwargs: object) -> list:  # type: ignore[override]
+        if isinstance(host, str) and not _is_loopback(host):
+            raise RuntimeError(
+                f"Egress blocked: DNS resolution attempted for '{host}'. "
+                "Only loopback addresses are permitted."
+            )
+        return _original_getaddrinfo(host, *args, **kwargs)
+
+    def _guarded_create_connection(address: tuple, *args: object, **kwargs: object) -> socket.socket:  # type: ignore[override]
+        if isinstance(address, (tuple, list)) and len(address) >= 1:
+            _check_host(str(address[0]), "create_connection")
+        return _original_create_connection(address, *args, **kwargs)
+
     socket.socket.connect = _guarded_connect  # type: ignore[method-assign]
+    socket.socket.connect_ex = _guarded_connect_ex  # type: ignore[method-assign]
+    socket.socket.sendto = _guarded_sendto  # type: ignore[method-assign]
+    socket.getaddrinfo = _guarded_getaddrinfo  # type: ignore[assignment]
+    socket.create_connection = _guarded_create_connection  # type: ignore[assignment]
     _EGRESS_GUARD_INSTALLED = True
 
 

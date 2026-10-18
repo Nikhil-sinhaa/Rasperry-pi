@@ -1,0 +1,86 @@
+# docker-compose.yml – Offline isolated environment for the privacy proof
+#
+# Usage:
+#   docker compose up --build        # bring up app + Ollama
+#   make privacy-proof               # run the headless proof inside containers
+#
+# The `internal: true` network has no external route.  The app container can
+# reach the Ollama container on the internal network; neither can reach the
+# internet.  Model weights must be pre-pulled into a local volume (see
+# docs/model-acquisition.md §"Docker offline proof setup").
+
+version: "3.9"
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama_models:/root/.ollama
+    environment:
+      OLLAMA_NO_CLOUD: "1"
+      OLLAMA_HOST: "0.0.0.0:11434"
+    networks:
+      - internal
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:11434/api/tags"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      OLLAMA_BASE_URL: "http://ollama:11434"
+      OLLAMA_MODEL: "${OLLAMA_MODEL:-gemma3n:e2b}"
+      OLLAMA_EMBED_MODEL: "${OLLAMA_EMBED_MODEL:-nomic-embed-text}"
+      OLLAMA_NO_CLOUD: "1"
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+      STREAMLIT_BROWSER_GATHER_USAGE_STATS: "false"
+      DO_NOT_TRACK: "1"
+    ports:
+      - "127.0.0.1:8501:8501"
+    networks:
+      - internal
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: unless-stopped
+
+  proof:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: >
+      bash -c "
+        python scripts/headless_proof.py
+          --document samples/demo_rental_agreement.txt
+          --question 'What is the monthly rent?'
+          --output evidence/offline-run.md
+      "
+    environment:
+      OLLAMA_BASE_URL: "http://ollama:11434"
+      OLLAMA_MODEL: "${OLLAMA_MODEL:-gemma3n:e2b}"
+      OLLAMA_EMBED_MODEL: "${OLLAMA_EMBED_MODEL:-nomic-embed-text}"
+      OLLAMA_NO_CLOUD: "1"
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+    volumes:
+      - ./evidence:/app/evidence
+    networks:
+      - internal
+    depends_on:
+      ollama:
+        condition: service_healthy
+    profiles:
+      - proof
+
+networks:
+  internal:
+    internal: true
+
+volumes:
+  ollama_models:

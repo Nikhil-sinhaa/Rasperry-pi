@@ -51,6 +51,16 @@ def main() -> int:
         errors.append("Streamlit usage statistics are not disabled in config.toml.")
     if 'address = "127.0.0.1"' not in streamlit_config:
         errors.append("Streamlit is not configured to bind to 127.0.0.1.")
+    # Egress guard checks (Member 2 requirement)
+    if "def install_egress_guard" not in runtime_source:
+        errors.append("Runtime egress guard function 'install_egress_guard' is missing from local_runtime.py.")
+    if "install_egress_guard()" not in runtime_source:
+        errors.append(
+            "install_egress_guard() is not called at module level in local_runtime.py. "
+            "It must run automatically on import before any network call is made."
+        )
+    if "socket.socket.connect" not in runtime_source:
+        errors.append("Egress guard does not patch socket.socket.connect in local_runtime.py.")
 
     if errors:
         print("FAIL: static privacy checks found issue(s):")
@@ -58,7 +68,11 @@ def main() -> int:
             print(f" - {error}")
         return 1
     print("PASS: no external URL literals or hosted-service imports in app/runtime Python code.")
-    print("PASS: loopback Ollama guard present; inherited HTTP proxies disabled; Streamlit telemetry disabled; app bound to localhost.")
+    print(
+        "PASS: loopback Ollama guard present; inherited HTTP proxies disabled; "
+        "Streamlit telemetry disabled; app bound to localhost; "
+        "socket-level egress guard (install_egress_guard) present and installed at module level."
+    )
     print("LIMIT: static inspection does not prove runtime behavior. Pair with OLLAMA_NO_CLOUD=1 and network capture/offline testing.")
     return 0
 

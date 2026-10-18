@@ -1,0 +1,126 @@
+COMPREHENSIVE RESIDENTIAL LEASE AGREEMENT — FICTIONAL EXAMPLE ONLY
+This is a longer fictional document for testing retrieval on multi-section agreements.
+Pages are indicated by section markers. All names and figures are invented.
+
+=== PAGE 1 ===
+
+PARTIES
+Landlord: Ashwin Properties Pvt Ltd (fictional)
+Tenant: Meera Fictional and Deepak Fictional (jointly)
+Property: Unit 301, Green Valley Residences, Fictional City
+
+RECITALS
+The Landlord is the registered owner of the property described above.
+The Tenant wishes to rent this property for residential purposes only.
+Both parties agree to the terms set out in this agreement.
+
+=== PAGE 2 ===
+
+1. TERM AND COMMENCEMENT
+The tenancy commences on 1 December 2026 and continues until 30 November 2028
+(24 months), unless terminated earlier in accordance with this agreement.
+
+2. LOCK-IN PERIOD
+The first 12 months constitute a lock-in period. Neither party may terminate during
+the lock-in period except in case of material breach by the other party.
+
+3. RENT
+Monthly rent: INR 35,000, payable in advance by the 1st of each month.
+Payment must be made by NEFT/RTGS to the Landlord's designated account.
+
+=== PAGE 3 ===
+
+4. RENT ESCALATION
+The rent shall escalate by 5% per annum at the start of the second year of the tenancy.
+The escalated rent from 1 December 2027 will be INR 36,750 per month.
+
+5. SECURITY DEPOSIT
+A security deposit of INR 1,05,000 (three months' rent) is payable before possession.
+The deposit earns no interest. It will be refunded within 45 days of vacant possession,
+after deductions for unpaid rent, utilities, and damage beyond fair wear and tear.
+
+6. UTILITIES
+Electricity, water, and internet charges are the Tenant's responsibility. The Tenant
+must register these accounts in their own name within 30 days of possession.
+
+=== PAGE 4 ===
+
+7. MAINTENANCE AND REPAIRS
+Tenant's responsibility: routine maintenance, pest control, minor repairs below INR 2,000.
+Landlord's responsibility: structural repairs, major appliances, plumbing and electrical
+systems. The Landlord must complete major repairs within 21 calendar days of written notice.
+
+8. ALTERATIONS
+Tenant must not make structural alterations without prior written consent. Cosmetic
+changes (painting, fixtures) are permitted with 7 days' prior notice to the Landlord.
+
+9. SUBLETTING AND ASSIGNMENT
+No subletting, assignment, or allowing third parties to occupy the property without
+the Landlord's prior written consent. Violation is a material breach.
+
+=== PAGE 5 ===
+
+10. TERMINATION BY TENANT AFTER LOCK-IN
+After the lock-in period, the Tenant may terminate by giving 90 days' written notice.
+Notice must be served by registered post or courier with proof of delivery.
+
+11. TERMINATION BY LANDLORD FOR BREACH
+If the Tenant breaches this agreement, the Landlord must issue a written cure notice.
+The Tenant has 10 days to cure the breach. If uncured, the Landlord may issue a
+termination notice effective after a further 30 days.
+
+12. TERMINATION BY LANDLORD FOR PERSONAL USE
+The Landlord may require the property for their own use or renovation after the
+lock-in period by giving 90 days' notice. No compensation is payable.
+
+=== PAGE 6 ===
+
+13. LATE PAYMENT
+Rent paid after the 5th of the month attracts a late fee of 3% per month on the
+overdue amount.
+
+14. REINSTATEMENT
+On expiry or termination, the Tenant must return the property in the same condition
+as received, fair wear and tear excepted, and repaint if required at their cost.
+
+15. DISPUTE RESOLUTION
+Any dispute shall first be referred to mediation. If unresolved within 30 days,
+the dispute shall be submitted to binding arbitration under the Arbitration and
+Conciliation Act, 1996. The seat of arbitration is Fictional City.
+
+=== PAGE 7 ===
+
+16. GOVERNING LAW
+This agreement is governed by the applicable state laws of the state in which the
+property is located. The agreement does not identify the state by name.
+
+17. FORCE MAJEURE
+Neither party is liable for failure to perform due to events beyond reasonable
+control, including natural disasters, government actions, or civil unrest, provided
+notice is given within 7 days of the event.
+
+18. ENTIRE AGREEMENT
+This document constitutes the entire agreement between the parties and supersedes
+all prior discussions and correspondence. No oral agreement is binding.
+
+19. AMENDMENTS
+Amendments must be in writing and signed by both parties.
+
+=== PAGE 8 ===
+
+20. NOTICES
+All formal notices must be delivered by registered post or email with read receipt
+to the addresses specified by each party at signing.
+
+21. JOINT AND SEVERAL LIABILITY
+Where the Tenant comprises more than one person, their liability under this agreement
+is joint and several.
+
+22. CONFIDENTIALITY OF TERMS
+The parties agree to keep the financial terms of this agreement confidential.
+
+23. SIGNATURES
+This is a fictional sample; no real signatures are present. Both parties would sign
+each page of the final executed version.
+
+END OF DOCUMENT

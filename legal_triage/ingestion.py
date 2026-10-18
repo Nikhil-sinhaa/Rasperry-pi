@@ -1,4 +1,14 @@
-"""In-memory PDF/plain-text ingestion. Uploaded content is never written to disk."""
+"""In-memory PDF/plain-text ingestion. Uploaded content is never written to disk.
+
+Member 3 additions
+------------------
+* DOCX support via python-docx (lazy import so missing package is a clear error).
+* _normalize_ligatures()  – replaces common PDF ligature codepoints before chunking
+  and before quote matching, so a quote extracted from a ligature-bearing PDF still
+  matches the verbatim text stored in a chunk.
+* _normalize_hyphenation() – strips soft-hyphen line-break artifacts (e.g. "agree-\nment"
+  → "agreement") that some PDF extractors produce in multi-column layouts.
+"""
 from __future__ import annotations
 
 import io
@@ -9,6 +19,55 @@ from pypdf import PdfReader
 
 from .config import SETTINGS
 from .types import Chunk
+
+# ---------------------------------------------------------------------------
+# Text normalisation helpers (Member 3)
+# ---------------------------------------------------------------------------
+
+# Common ligature substitution table (Unicode Private Use + standard ligature codepoints)
+_LIGATURE_TABLE: dict[str, str] = {
+    "\ufb00": "ff",   # ﬀ
+    "\ufb01": "fi",   # ﬁ
+    "\ufb02": "fl",   # ﬂ
+    "\ufb03": "ffi",  # ﬃ
+    "\ufb04": "ffl",  # ﬄ
+    "\ufb05": "st",   # ﬅ
+    "\ufb06": "st",   # ﬆ
+    "\u00e6": "ae",   # æ
+    "\u0153": "oe",   # œ
+}
+_LIGATURE_RE = re.compile("|".join(re.escape(k) for k in _LIGATURE_TABLE))
+
+
+def _normalize_ligatures(text: str) -> str:
+    """Replace common PDF ligature codepoints with their ASCII equivalents."""
+    return _LIGATURE_RE.sub(lambda m: _LIGATURE_TABLE[m.group()], text)
+
+
+# Hyphenated line-break pattern: word-\n or word-\r\nword (with optional spaces)
+_HYPHEN_LINEBREAK_RE = re.compile(r"-(\r?\n)\s*", re.MULTILINE)
+
+
+def _normalize_hyphenation(text: str) -> str:
+    """Join hyphenated line-break artifacts produced by some PDF extractors.
+
+    For example, "agree-\nment" → "agreement", "multi-\n  column" → "multicolumn".
+    Only hyphens immediately before a newline are treated as line-break artifacts;
+    standalone hyphens within a line (compound words, ranges) are left unchanged.
+    """
+    return _HYPHEN_LINEBREAK_RE.sub("", text)
+
+
+def normalize_text_for_matching(text: str) -> str:
+    """Apply all normalisation steps used before quote matching.
+
+    Called by the grounding module (via import) to normalise both the chunk
+    source text and a proposed quote before verbatim comparison.
+    """
+    text = _normalize_ligatures(text)
+    text = _normalize_hyphenation(text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
 
 
 class IngestionError(ValueError):
@@ -64,10 +123,47 @@ def _page_texts(filename: str, content: bytes) -> tuple[list[tuple[int, str]], l
             raise IngestionError(f"{filename}: text files must be UTF-8 encoded.") from exc
         if not text.strip():
             raise IngestionError(f"{filename}: no readable text was found.")
+        text = _normalize_ligatures(_normalize_hyphenation(text))
         return [(1, text)], warnings, 1
 
+    # -----------------------------------------------------------------------
+    # DOCX support (Member 3)
+    # -----------------------------------------------------------------------
+    if lower_name.endswith(".docx"):
+        try:
+            import docx as _docx  # python-docx; lazy so missing package gives a clear error
+        except ImportError as exc:
+            raise IngestionError(
+                f"{filename}: python-docx is required to read .docx files. "
+                "Install it with: pip install python-docx"
+            ) from exc
+        try:
+            doc = _docx.Document(io.BytesIO(content))
+        except Exception as exc:
+            raise IngestionError(
+                f"{filename}: the DOCX file could not be opened ({type(exc).__name__})."
+            ) from exc
+        paragraphs = [para.text for para in doc.paragraphs if para.text.strip()]
+        # Also extract text from tables
+        for table in doc.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    cell_text = cell.text.strip()
+                    if cell_text:
+                        paragraphs.append(cell_text)
+        if not paragraphs:
+            raise IngestionError(
+                f"{filename}: the DOCX file contains no readable text. "
+                "Check that the document is not empty or password-protected."
+            )
+        full_text = "\n\n".join(paragraphs)
+        full_text = _normalize_ligatures(_normalize_hyphenation(full_text))
+        return [(1, full_text)], warnings, 1
+
     if not lower_name.endswith(".pdf"):
-        raise IngestionError(f"{filename}: only PDF and UTF-8 .txt files are supported.")
+        raise IngestionError(
+            f"{filename}: only PDF, UTF-8 .txt, and .docx files are supported."
+        )
     if not content.startswith(b"%PDF"):
         raise IngestionError(f"{filename}: file extension says PDF, but the content is not a PDF.")
 
@@ -94,6 +190,8 @@ def _page_texts(filename: str, content: bytes) -> tuple[list[tuple[int, str]], l
             text = page.extract_text() or ""
         except Exception:
             text = ""
+        # Apply ligature and hyphenation normalisation at extraction time
+        text = _normalize_ligatures(_normalize_hyphenation(text))
         if text.strip():
             pages.append((page_number, text))
         else:

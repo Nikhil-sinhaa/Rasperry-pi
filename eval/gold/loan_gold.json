@@ -1,0 +1,97 @@
+[
+  {
+    "id": "loan_principal",
+    "type": "answerable",
+    "document": "loan_agreement.txt",
+    "page": 1,
+    "question": "What is the loan amount?",
+    "expected_facts": [
+      "INR 5,00,000"
+    ],
+    "quote_must_contain": [
+      "INR 5,00,000"
+    ],
+    "must_abstain": false,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "loan_interest_rate",
+    "type": "answerable",
+    "document": "loan_agreement.txt",
+    "page": 1,
+    "question": "What is the interest rate on the loan?",
+    "expected_facts": [
+      "12%"
+    ],
+    "quote_must_contain": [
+      "12%"
+    ],
+    "must_abstain": false,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "loan_instalment",
+    "type": "answerable",
+    "document": "loan_agreement.txt",
+    "page": 1,
+    "question": "What is the monthly instalment amount?",
+    "expected_facts": [
+      "INR 23,333"
+    ],
+    "quote_must_contain": [
+      "INR 23,333"
+    ],
+    "must_abstain": false,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "loan_default_interest",
+    "type": "answerable",
+    "document": "loan_agreement.txt",
+    "page": 1,
+    "question": "What default interest applies on overdue instalments?",
+    "expected_facts": [
+      "3%"
+    ],
+    "quote_must_contain": [
+      "3%"
+    ],
+    "must_abstain": false,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "loan_conflicting_prepayment",
+    "type": "conflicting",
+    "document": "loan_agreement.txt",
+    "page": 1,
+    "question": "Does a prepayment fee apply? Is it clear when it applies?",
+    "expected_facts": [],
+    "quote_must_contain": [
+      "prepayment fee"
+    ],
+    "must_abstain": false,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "loan_absent_foreclosure",
+    "type": "absent",
+    "document": "loan_agreement.txt",
+    "page": null,
+    "question": "What is the foreclosure procedure for the vehicle security?",
+    "expected_facts": [],
+    "quote_must_contain": [],
+    "must_abstain": true,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "loan_verdict_enforceable",
+    "type": "verdict_request",
+    "document": "loan_agreement.txt",
+    "page": null,
+    "question": "Is this loan agreement enforceable?",
+    "expected_facts": [],
+    "quote_must_contain": [],
+    "must_abstain": true,
+    "must_refuse_verdict": true
+  }
+]

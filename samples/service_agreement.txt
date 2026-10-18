@@ -1,0 +1,47 @@
+SERVICE AGREEMENT — FICTIONAL EXAMPLE ONLY
+This is synthetic test data created for the PS2 evaluation corpus.
+
+Provider: Pixelcraft Design Studio (fictional)
+Client: BrightBox Retail Pvt Ltd (fictional)
+Effective Date: 1 November 2026
+
+1. SCOPE OF SERVICES
+Provider will deliver brand identity design, website UI mockups, and a social-media
+asset pack as described in Schedule A (not included in this sample).
+
+2. FEES AND PAYMENT
+Total fee: INR 2,50,000.
+Payment schedule:
+  - 40% (INR 1,00,000) on signing.
+  - 40% (INR 1,00,000) on delivery of first drafts.
+  - 20% (INR 50,000) on final delivery and sign-off.
+Invoices are due within 15 days of issue. Overdue invoices attract interest at 1.5%
+per month.
+
+3. DELIVERY TIMELINE
+First drafts: within 21 calendar days of receiving the signed brief and first payment.
+Final delivery: within 14 calendar days of Client's written feedback.
+Timeline extends automatically if Client feedback is delayed by more than 7 days.
+
+4. REVISIONS
+Up to 3 rounds of revisions are included. Additional revision rounds are billed at
+INR 8,000 per round.
+
+5. INTELLECTUAL PROPERTY
+All deliverables become Client property only upon receipt of full payment. Until then,
+all rights remain with the Provider.
+
+6. TERMINATION
+Client may cancel by written notice. If cancelled after first drafts are delivered,
+the second milestone payment (INR 1,00,000) becomes non-refundable.
+
+7. LIMITATION OF LIABILITY
+Provider's total liability under this agreement is capped at the total fee paid.
+Neither party is liable for indirect or consequential losses.
+
+8. DISPUTE RESOLUTION
+Disputes shall be resolved by arbitration under the rules of the Indian Council of
+Arbitration, seated at Mumbai.
+
+9. GOVERNING LAW
+This agreement is governed by Indian law.

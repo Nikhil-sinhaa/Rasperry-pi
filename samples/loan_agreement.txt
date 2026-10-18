@@ -1,0 +1,41 @@
+LOAN AGREEMENT — FICTIONAL EXAMPLE ONLY
+Synthetic test data. No real parties, amounts, or transactions.
+
+Lender: Sunrise Finance Ltd (fictional)
+Borrower: Riya Fictional
+Principal Amount: INR 5,00,000
+Date: 1 October 2026
+
+1. LOAN AND DISBURSEMENT
+Sunrise Finance Ltd agrees to lend INR 5,00,000 to the Borrower. The amount will
+be credited to the Borrower's bank account within 3 working days of signing.
+
+2. INTEREST
+Interest at the rate of 12% per annum (simple interest) will be charged on the
+outstanding principal.
+
+3. REPAYMENT SCHEDULE
+The loan is repayable in 24 equal monthly instalments of INR 23,333 each, beginning
+on 1 November 2026.
+
+4. PREPAYMENT
+The Borrower may repay early without penalty after 6 months. Prepayment within the
+first 6 months attracts a fee of 2% of the outstanding balance.
+
+5. DEFAULT
+If any instalment remains unpaid for more than 15 days, the full outstanding balance
+becomes immediately due and payable. The Lender may also charge a default interest
+of 3% per month on the overdue amount.
+
+6. SECURITY
+The Borrower provides the vehicle bearing Registration No. FICTIONAL-0000 as
+security for this loan. The agreement does not specify procedures for transferring
+the security in the event of default.
+
+7. PREPAYMENT FEE AMBIGUITY
+The agreement mentions "prepayment fee" in clause 4 but does not define whether
+this applies to partial prepayments or only to full early repayment.
+
+8. GOVERNING LAW
+This agreement is governed by the laws of India, and disputes are subject to the
+exclusive jurisdiction of courts in Mumbai.

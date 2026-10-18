@@ -1,13 +1,95 @@
-"""Minimal Ollama HTTP client constrained to loopback and with proxy inheritance disabled."""
+"""Minimal Ollama HTTP client constrained to loopback and with proxy inheritance disabled.
+
+Module-level side-effect
+------------------------
+Importing this module installs a socket-level egress guard (``install_egress_guard``) that
+prevents the Python process from opening TCP connections to any address outside the loopback
+range.  The guard is idempotent; it will not be applied twice if the module is re-imported.
+
+Note: this guard covers the Python process only.  The Ollama *server* process has its own
+isolation requirements (``OLLAMA_NO_CLOUD=1``, ``OLLAMA_HOST=127.0.0.1:11434``) that must be
+configured separately before launching the server.
+"""
 from __future__ import annotations
 
+import ipaddress
 import math
+import socket
 from typing import Any
 
 import numpy as np
 import requests
 
 from .config import SETTINGS, ConfigurationError
+
+# ---------------------------------------------------------------------------
+# Runtime egress guard
+# ---------------------------------------------------------------------------
+
+_EGRESS_GUARD_INSTALLED: bool = False
+_LOOPBACK_NETWORKS = (
+    ipaddress.ip_network("127.0.0.0/8"),   # IPv4 loopback block
+    ipaddress.ip_network("::1/128"),         # IPv6 loopback
+)
+
+
+def _is_loopback(host: str) -> bool:
+    """Return True when *host* resolves to a loopback address.
+
+    Hostnames ``localhost`` and ``127.*`` are accepted without DNS resolution;
+    all other strings are parsed as IP addresses.  If parsing fails, the host
+    is treated as non-loopback (fail-closed).
+    """
+    if host in ("localhost", "127.0.0.1", "::1"):
+        return True
+    try:
+        addr = ipaddress.ip_address(host)
+        return any(addr in net for net in _LOOPBACK_NETWORKS)
+    except ValueError:
+        # Could not parse as an IP – do not resolve; treat as non-loopback.
+        return False
+
+
+def install_egress_guard() -> None:
+    """Monkey-patch ``socket.socket.connect`` to block non-loopback destinations.
+
+    After this function returns, any attempt by the Python process to open a
+    TCP (or UDP) connection to a non-loopback address will raise a
+    ``RuntimeError``.
+
+    The patch is idempotent: calling it a second time is a no-op.
+    """
+    global _EGRESS_GUARD_INSTALLED  # noqa: PLW0603
+    if _EGRESS_GUARD_INSTALLED:
+        return
+
+    _original_connect = socket.socket.connect
+
+    def _guarded_connect(self: socket.socket, address: object) -> None:  # type: ignore[override]
+        """Intercept connect() and raise for non-loopback destinations."""
+        host: str = ""
+        if isinstance(address, (tuple, list)) and len(address) >= 1:
+            # AF_INET: (host, port); AF_INET6: (host, port, flow, scope)
+            host = str(address[0])
+        elif isinstance(address, str):
+            # AF_UNIX path or bare string – allow (Unix socket is local by definition).
+            return _original_connect(self, address)
+        if host and not _is_loopback(host):
+            raise RuntimeError(
+                f"Egress blocked: the Python process attempted to connect to "
+                f"non-loopback address '{host}'. "
+                "All network access must stay on 127.0.0.1/localhost (Python process). "
+                "Ensure OLLAMA_HOST=127.0.0.1:11434 is set for the Ollama server process."
+            )
+        return _original_connect(self, address)
+
+    socket.socket.connect = _guarded_connect  # type: ignore[method-assign]
+    _EGRESS_GUARD_INSTALLED = True
+
+
+# Install the guard immediately when this module is imported so that the
+# Streamlit app is protected even before a LocalOllama instance is created.
+install_egress_guard()
 
 
 class LocalModelError(RuntimeError):

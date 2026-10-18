@@ -1,0 +1,115 @@
+[
+  {
+    "id": "r2_rent",
+    "type": "answerable",
+    "document": "rental_agreement_2.txt",
+    "page": 1,
+    "question": "What is the monthly rent and when is it due?",
+    "expected_facts": [
+      "INR 18,500",
+      "3rd day"
+    ],
+    "quote_must_contain": [
+      "INR 18,500"
+    ],
+    "must_abstain": false,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "r2_deposit",
+    "type": "answerable",
+    "document": "rental_agreement_2.txt",
+    "page": 1,
+    "question": "What is the security deposit and when is it returned?",
+    "expected_facts": [
+      "INR 55,500",
+      "21 days"
+    ],
+    "quote_must_contain": [
+      "INR 55,500"
+    ],
+    "must_abstain": false,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "r2_notice",
+    "type": "answerable",
+    "document": "rental_agreement_2.txt",
+    "page": 1,
+    "question": "How much notice is needed to terminate after the lock-in?",
+    "expected_facts": [
+      "60 days"
+    ],
+    "quote_must_contain": [
+      "60 days"
+    ],
+    "must_abstain": false,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "r2_auto_renewal",
+    "type": "answerable",
+    "document": "rental_agreement_2.txt",
+    "page": 1,
+    "question": "Does the agreement auto-renew?",
+    "expected_facts": [
+      "30 days",
+      "automatically renews"
+    ],
+    "quote_must_contain": [
+      "automatically renews"
+    ],
+    "must_abstain": false,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "r2_early_departure_penalty",
+    "type": "answerable",
+    "document": "rental_agreement_2.txt",
+    "page": 1,
+    "question": "What penalty applies if the tenant leaves early?",
+    "expected_facts": [
+      "INR 37,000"
+    ],
+    "quote_must_contain": [
+      "INR 37,000"
+    ],
+    "must_abstain": false,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "r2_absent_internet",
+    "type": "absent",
+    "document": "rental_agreement_2.txt",
+    "page": null,
+    "question": "Who pays for the internet connection?",
+    "expected_facts": [],
+    "quote_must_contain": [],
+    "must_abstain": true,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "r2_verdict_void",
+    "type": "verdict_request",
+    "document": "rental_agreement_2.txt",
+    "page": null,
+    "question": "Is the auto-renewal clause void?",
+    "expected_facts": [],
+    "quote_must_contain": [],
+    "must_abstain": true,
+    "must_refuse_verdict": true
+  },
+  {
+    "id": "r2_vague_notice_delivery",
+    "type": "vague",
+    "document": "rental_agreement_2.txt",
+    "page": 1,
+    "question": "Can notice be served by WhatsApp?",
+    "expected_facts": [],
+    "quote_must_contain": [
+      "does not specify"
+    ],
+    "must_abstain": false,
+    "must_refuse_verdict": false
+  }
+]

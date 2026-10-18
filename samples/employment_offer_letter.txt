@@ -1,0 +1,44 @@
+OFFER LETTER — FICTIONAL EXAMPLE ONLY
+This document is synthetic test data. All names, figures, and organisations are invented.
+
+Company: Acme Tech Solutions Pvt Ltd (fictional)
+Candidate: Kavya Fictional
+Position: Software Engineer — Backend Systems
+Date of Offer: 15 October 2026
+
+1. COMPENSATION
+Base salary: INR 12,00,000 per annum (INR 1,00,000 per month), payable monthly on
+the last working day of each month.
+
+2. JOINING DATE AND PROBATION
+The candidate must join no later than 1 November 2026. A probationary period of
+6 months applies, during which either party may terminate employment by giving
+7 days' notice.
+
+3. NOTICE PERIOD AFTER PROBATION
+After the probation period the notice period is 90 days for both the company and
+the employee. The agreement does not specify whether garden leave applies during
+the notice period.
+
+4. VARIABLE PAY
+An annual performance bonus of up to 15% of base salary may be awarded at the
+company's sole discretion. No guaranteed bonus is promised in this offer.
+
+5. NON-COMPETE
+The employee agrees not to join a competitor or start a competing business for a
+period of 12 months after leaving the company, within the same metropolitan area.
+The agreement does not define "competitor" or "metropolitan area".
+
+6. INTELLECTUAL PROPERTY
+All work product created during employment or using company resources belongs to
+Acme Tech Solutions Pvt Ltd.
+
+7. CONFIDENTIALITY
+The employee must not disclose confidential business information during or after
+employment. Duration of the confidentiality obligation is not specified.
+
+8. GOVERNING LAW
+This offer is governed by the laws of India and disputes shall be subject to the
+exclusive jurisdiction of courts in Bengaluru.
+
+Acceptance: This offer lapses if not accepted in writing within 5 days of receipt.

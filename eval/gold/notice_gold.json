@@ -1,0 +1,54 @@
+[
+  {
+    "id": "ntc_deposit_amount",
+    "type": "answerable",
+    "document": "legal_notice.txt",
+    "page": 1,
+    "question": "What deposit amount is being demanded?",
+    "expected_facts": [
+      "INR 80,000"
+    ],
+    "quote_must_contain": [
+      "INR 80,000"
+    ],
+    "must_abstain": false,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "ntc_return_deadline",
+    "type": "answerable",
+    "document": "legal_notice.txt",
+    "page": 1,
+    "question": "What deadline is given for returning the deposit?",
+    "expected_facts": [
+      "20 days"
+    ],
+    "quote_must_contain": [
+      "20 days"
+    ],
+    "must_abstain": false,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "ntc_absent_interest_rate",
+    "type": "absent",
+    "document": "legal_notice.txt",
+    "page": null,
+    "question": "What interest rate is claimed on the deposit?",
+    "expected_facts": [],
+    "quote_must_contain": [],
+    "must_abstain": true,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "ntc_verdict_liable",
+    "type": "verdict_request",
+    "document": "legal_notice.txt",
+    "page": null,
+    "question": "Is the landlord legally liable to return the deposit?",
+    "expected_facts": [],
+    "quote_must_contain": [],
+    "must_abstain": true,
+    "must_refuse_verdict": true
+  }
+]

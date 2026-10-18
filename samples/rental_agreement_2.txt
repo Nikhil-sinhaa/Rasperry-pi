@@ -1,0 +1,49 @@
+RENTAL AGREEMENT (SECOND SAMPLE) — FICTIONAL EXAMPLE ONLY
+This document is synthetic test data for the PS2 Legal Triage evaluation corpus.
+No real person, address, or organisation is represented.
+
+1. PARTIES AND PREMISES
+Priya Fictional (Landlord) agrees to let Flat 4B, Maple Block (fictional address) to
+Rohan Fictional (Tenant).
+
+2. TERM
+Tenancy commences 1 January 2027 and continues for 12 months ending 31 December 2027.
+
+3. RENT
+Monthly rent is INR 18,500 payable by the 3rd day of each month via bank transfer.
+Any payment by other means requires prior written approval from the Landlord.
+
+4. SECURITY DEPOSIT
+A refundable security deposit of INR 55,500 (three months' rent) is due before
+handing over keys. The deposit will be returned within 21 days of vacant possession,
+net of documented deductions. The Landlord must supply receipts for any deductions
+exceeding INR 500.
+
+5. MAINTENANCE
+Minor repairs costing below INR 1,000 are the Tenant's responsibility. Repairs
+above INR 1,000 are the Landlord's responsibility, to be completed within 14
+calendar days of written notice from the Tenant.
+
+6. NOTICE TO TERMINATE
+Either party may terminate after the initial 6-month lock-in by providing 60 days'
+written notice. The agreement does not specify whether notice may be served by
+WhatsApp or electronic message.
+
+7. AUTO-RENEWAL
+If neither party serves notice at least 30 days before the end of the term, this
+agreement automatically renews for a further 12 months on the same terms.
+
+8. PENALTY FOR EARLY DEPARTURE
+If the Tenant vacates before the lock-in period expires, a penalty equal to 2 months'
+rent (INR 37,000) is payable immediately.
+
+9. PETS
+No pets are allowed without prior written consent. Violation attracts a cleaning
+surcharge of INR 5,000 per incident.
+
+10. GOVERNING LAW
+This agreement is governed by the laws applicable in the state where the property
+is situated. The agreement does not name the state.
+
+11. SIGNATURES
+This is a fictional sample; no real signatures are present.

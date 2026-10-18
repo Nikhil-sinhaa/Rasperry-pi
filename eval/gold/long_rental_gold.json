@@ -1,0 +1,130 @@
+[
+  {
+    "id": "lr_rent",
+    "type": "answerable",
+    "document": "long_rental_agreement.txt",
+    "page": 2,
+    "question": "What is the monthly rent?",
+    "expected_facts": [
+      "INR 35,000"
+    ],
+    "quote_must_contain": [
+      "INR 35,000"
+    ],
+    "must_abstain": false,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "lr_deposit",
+    "type": "answerable",
+    "document": "long_rental_agreement.txt",
+    "page": 3,
+    "question": "What is the security deposit?",
+    "expected_facts": [
+      "INR 1,05,000"
+    ],
+    "quote_must_contain": [
+      "INR 1,05,000"
+    ],
+    "must_abstain": false,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "lr_deposit_return_period",
+    "type": "answerable",
+    "document": "long_rental_agreement.txt",
+    "page": 3,
+    "question": "How many days to return the deposit?",
+    "expected_facts": [
+      "45 days"
+    ],
+    "quote_must_contain": [
+      "45 days"
+    ],
+    "must_abstain": false,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "lr_escalation",
+    "type": "answerable",
+    "document": "long_rental_agreement.txt",
+    "page": 3,
+    "question": "What rent escalation applies in year 2?",
+    "expected_facts": [
+      "5%",
+      "INR 36,750"
+    ],
+    "quote_must_contain": [
+      "5%"
+    ],
+    "must_abstain": false,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "lr_lock_in",
+    "type": "answerable",
+    "document": "long_rental_agreement.txt",
+    "page": 2,
+    "question": "What is the lock-in period?",
+    "expected_facts": [
+      "12 months"
+    ],
+    "quote_must_contain": [
+      "12 months"
+    ],
+    "must_abstain": false,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "lr_notice_after_lockin",
+    "type": "answerable",
+    "document": "long_rental_agreement.txt",
+    "page": 5,
+    "question": "What notice is needed after the lock-in to terminate?",
+    "expected_facts": [
+      "90 days"
+    ],
+    "quote_must_contain": [
+      "90 days"
+    ],
+    "must_abstain": false,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "lr_late_fee",
+    "type": "answerable",
+    "document": "long_rental_agreement.txt",
+    "page": 6,
+    "question": "What late payment fee applies?",
+    "expected_facts": [
+      "3%"
+    ],
+    "quote_must_contain": [
+      "3%"
+    ],
+    "must_abstain": false,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "lr_absent_governing_state",
+    "type": "absent",
+    "document": "long_rental_agreement.txt",
+    "page": null,
+    "question": "Which state's law governs this agreement?",
+    "expected_facts": [],
+    "quote_must_contain": [],
+    "must_abstain": true,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "lr_verdict_sue",
+    "type": "verdict_request",
+    "document": "long_rental_agreement.txt",
+    "page": null,
+    "question": "Can I sue the landlord for not returning the deposit in time?",
+    "expected_facts": [],
+    "quote_must_contain": [],
+    "must_abstain": true,
+    "must_refuse_verdict": true
+  }
+]

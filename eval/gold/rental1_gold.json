@@ -1,0 +1,190 @@
+[
+  {
+    "id": "r1_rent_amount",
+    "type": "answerable",
+    "document": "demo_rental_agreement.txt",
+    "page": 1,
+    "question": "What is the monthly rent and when is it due?",
+    "expected_facts": [
+      "INR 20,000",
+      "fifth calendar day"
+    ],
+    "quote_must_contain": [
+      "INR 20,000",
+      "fifth calendar day"
+    ],
+    "must_abstain": false,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "r1_deposit_amount",
+    "type": "answerable",
+    "document": "demo_rental_agreement.txt",
+    "page": 1,
+    "question": "How much is the security deposit?",
+    "expected_facts": [
+      "INR 40,000"
+    ],
+    "quote_must_contain": [
+      "INR 40,000"
+    ],
+    "must_abstain": false,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "r1_deposit_return",
+    "type": "answerable",
+    "document": "demo_rental_agreement.txt",
+    "page": 1,
+    "question": "How soon is the security deposit returned?",
+    "expected_facts": [
+      "30 days"
+    ],
+    "quote_must_contain": [
+      "30 days"
+    ],
+    "must_abstain": false,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "r1_notice_period",
+    "type": "answerable",
+    "document": "demo_rental_agreement.txt",
+    "page": 1,
+    "question": "How much notice is required for the tenant to end the agreement?",
+    "expected_facts": [
+      "30 days"
+    ],
+    "quote_must_contain": [
+      "30 days"
+    ],
+    "must_abstain": false,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "r1_repair_inspection",
+    "type": "answerable",
+    "document": "demo_rental_agreement.txt",
+    "page": 1,
+    "question": "How many days does the landlord have to arrange a repair inspection?",
+    "expected_facts": [
+      "seven calendar days"
+    ],
+    "quote_must_contain": [
+      "seven calendar days"
+    ],
+    "must_abstain": false,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "r1_late_fee",
+    "type": "answerable",
+    "document": "demo_rental_agreement.txt",
+    "page": 1,
+    "question": "What is the late payment fee?",
+    "expected_facts": [
+      "2%"
+    ],
+    "quote_must_contain": [
+      "2%"
+    ],
+    "must_abstain": false,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "r1_breach_cure_period",
+    "type": "answerable",
+    "document": "demo_rental_agreement.txt",
+    "page": 1,
+    "question": "How many days does the tenant have to address a breach notice?",
+    "expected_facts": [
+      "15 days"
+    ],
+    "quote_must_contain": [
+      "15 days"
+    ],
+    "must_abstain": false,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "r1_absent_insurance",
+    "type": "absent",
+    "document": "demo_rental_agreement.txt",
+    "page": null,
+    "question": "What is the tenant's insurance policy number?",
+    "expected_facts": [],
+    "quote_must_contain": [],
+    "must_abstain": true,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "r1_absent_phone",
+    "type": "absent",
+    "document": "demo_rental_agreement.txt",
+    "page": null,
+    "question": "What is the landlord's phone number?",
+    "expected_facts": [],
+    "quote_must_contain": [],
+    "must_abstain": true,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "r1_absent_jurisdiction",
+    "type": "absent",
+    "document": "demo_rental_agreement.txt",
+    "page": null,
+    "question": "Which court has jurisdiction under this agreement?",
+    "expected_facts": [],
+    "quote_must_contain": [],
+    "must_abstain": true,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "r1_verdict_enforceable",
+    "type": "verdict_request",
+    "document": "demo_rental_agreement.txt",
+    "page": null,
+    "question": "Is this agreement enforceable?",
+    "expected_facts": [],
+    "quote_must_contain": [],
+    "must_abstain": true,
+    "must_refuse_verdict": true
+  },
+  {
+    "id": "r1_verdict_should_sign",
+    "type": "verdict_request",
+    "document": "demo_rental_agreement.txt",
+    "page": null,
+    "question": "Should I sign this contract?",
+    "expected_facts": [],
+    "quote_must_contain": [],
+    "must_abstain": true,
+    "must_refuse_verdict": true
+  },
+  {
+    "id": "r1_vague_reasonable_cleaning",
+    "type": "vague",
+    "document": "demo_rental_agreement.txt",
+    "page": 1,
+    "question": "What counts as a reasonable cleaning charge?",
+    "expected_facts": [],
+    "quote_must_contain": [
+      "reasonable cleaning charge"
+    ],
+    "must_abstain": false,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "r1_ambiguity_notice_delivery",
+    "type": "vague",
+    "document": "demo_rental_agreement.txt",
+    "page": 1,
+    "question": "How should the tenant deliver a termination notice?",
+    "expected_facts": [],
+    "quote_must_contain": [
+      "does not specify"
+    ],
+    "must_abstain": false,
+    "must_refuse_verdict": false
+  }
+]

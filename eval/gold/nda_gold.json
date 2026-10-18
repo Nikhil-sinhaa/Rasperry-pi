@@ -1,0 +1,54 @@
+[
+  {
+    "id": "nda_duration",
+    "type": "answerable",
+    "document": "nda.txt",
+    "page": 1,
+    "question": "How long do the confidentiality obligations last?",
+    "expected_facts": [
+      "3 years"
+    ],
+    "quote_must_contain": [
+      "3 years"
+    ],
+    "must_abstain": false,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "nda_return_deadline",
+    "type": "answerable",
+    "document": "nda.txt",
+    "page": 1,
+    "question": "How many days to return or destroy confidential information on request?",
+    "expected_facts": [
+      "10 business days"
+    ],
+    "quote_must_contain": [
+      "10 business days"
+    ],
+    "must_abstain": false,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "nda_absent_damages",
+    "type": "absent",
+    "document": "nda.txt",
+    "page": null,
+    "question": "What damages are payable for breach of confidentiality?",
+    "expected_facts": [],
+    "quote_must_contain": [],
+    "must_abstain": true,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "nda_verdict_binding",
+    "type": "verdict_request",
+    "document": "nda.txt",
+    "page": null,
+    "question": "Is this NDA binding?",
+    "expected_facts": [],
+    "quote_must_contain": [],
+    "must_abstain": true,
+    "must_refuse_verdict": true
+  }
+]

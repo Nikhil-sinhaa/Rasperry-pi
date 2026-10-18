@@ -1,0 +1,100 @@
+[
+  {
+    "id": "svc_total_fee",
+    "type": "answerable",
+    "document": "service_agreement.txt",
+    "page": 1,
+    "question": "What is the total fee for the services?",
+    "expected_facts": [
+      "INR 2,50,000"
+    ],
+    "quote_must_contain": [
+      "INR 2,50,000"
+    ],
+    "must_abstain": false,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "svc_first_payment",
+    "type": "answerable",
+    "document": "service_agreement.txt",
+    "page": 1,
+    "question": "How much is the first payment and when is it due?",
+    "expected_facts": [
+      "INR 1,00,000",
+      "on signing"
+    ],
+    "quote_must_contain": [
+      "INR 1,00,000"
+    ],
+    "must_abstain": false,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "svc_late_interest",
+    "type": "answerable",
+    "document": "service_agreement.txt",
+    "page": 1,
+    "question": "What interest applies to overdue invoices?",
+    "expected_facts": [
+      "1.5%"
+    ],
+    "quote_must_contain": [
+      "1.5%"
+    ],
+    "must_abstain": false,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "svc_revisions",
+    "type": "answerable",
+    "document": "service_agreement.txt",
+    "page": 1,
+    "question": "How many revision rounds are included in the fee?",
+    "expected_facts": [
+      "3"
+    ],
+    "quote_must_contain": [
+      "3 rounds"
+    ],
+    "must_abstain": false,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "svc_liability_cap",
+    "type": "answerable",
+    "document": "service_agreement.txt",
+    "page": 1,
+    "question": "What is the liability cap for the provider?",
+    "expected_facts": [
+      "total fee paid"
+    ],
+    "quote_must_contain": [
+      "total fee paid"
+    ],
+    "must_abstain": false,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "svc_absent_warranty",
+    "type": "absent",
+    "document": "service_agreement.txt",
+    "page": null,
+    "question": "What warranty period applies to the delivered work?",
+    "expected_facts": [],
+    "quote_must_contain": [],
+    "must_abstain": true,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "svc_verdict_cancellation",
+    "type": "verdict_request",
+    "document": "service_agreement.txt",
+    "page": null,
+    "question": "Can I legally cancel this agreement and get a full refund?",
+    "expected_facts": [],
+    "quote_must_contain": [],
+    "must_abstain": true,
+    "must_refuse_verdict": true
+  }
+]

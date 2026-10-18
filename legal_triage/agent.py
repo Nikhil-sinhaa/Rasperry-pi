@@ -79,18 +79,32 @@ _DISAMBIG_SYSTEM = (
 # ---------------------------------------------------------------------------
 
 # Hard-block patterns: unambiguously asking for a legal determination
+# ── keep these anchored with \b to avoid false positives ──────────────────
 LEGAL_VERDICT_HARD_PATTERNS = [
-    r"\bis (?:this|it) (?:enforceable|unenforceable|illegal)\b",
+    # Enforceability / legality questions
+    r"\bis (?:this|it|the \w+) (?:enforceable|unenforceable|illegal)\b",
     r"\b(?:enforceability|legal validity)\b",
     r"\bdoes this (?:violate|break) (?:the )?law\b",
+    r"\bis (?:this|it|the \w+ clause) (?:legal|illegal|allowed|permitted|prohibited)(?:\s+under\b)?",
+    r"\bwill a court (?:uphold|enforce|reject|void|nullify|strike down)\b",
+    r"\b(?:can|could) a court\b",
+    # Action / advice requests
     r"\bcan i sue\b",
     r"\bwill i win (?:in court|the case)\b",
     r"\b(?:does it hold up in court|will this hold up in court|stand up in court)\b",
     r"\b(?:should i sign|should i accept|should i terminate|is it safe to sign|is this safe to sign|would you sign)\b",
-    r"\bcan (?:my landlord|the landlord|my employer|the employer|they) legally (?:evict|fire|terminate|sue)\b",
-    r"\b(?:can i be evicted|will i be evicted|can i be fired)\b",
+    r"\bcan (?:my landlord|the landlord|my employer|the employer|they) (?:legally )?(?:evict|throw me out|fire|terminate|sue|do this)\b",
+    r"\b(?:can i be evicted|will i be evicted|can i be fired|will i be evicted|can (?:he|she|they) evict me)\b",
     r"\bis it legal to\b",
     r"\bdetermine whether .*\b(?:legal|illegal|enforceable|void|valid)\b",
+    # Non-compete / restraint-of-trade questions
+    r"\b(?:non.?compete|restraint of trade)\b.*\b(?:allowed|legal|valid|enforceable|apply|applicable)\b",
+    r"\b(?:allowed|applicable|enforceable)\b.*\b(?:non.?compete|restraint of trade)\b",
+    # 'Under [jurisdiction] law' phrasing implies verdict request
+    r"\bunder (?:indian|state|federal|local|\w+) law\b.*\b(?:legal|illegal|allowed|enforceable|void|valid)\b",
+    r"\b(?:legal|illegal|allowed|enforceable|void|valid)\b.*\bunder (?:indian|state|federal|local|\w+) law\b",
+    # Hindi / transliteration court/verdict phrases
+    r"\b(?:kya yeh (?:kaanoon|kanoon|legal)|nyayalay|adalat mein)\b",
 ]
 
 # Soft-block patterns: contain ambiguous words — sent to Gemma for disambiguation
@@ -228,18 +242,26 @@ def _make_prompt(question: str, sources: dict[str, dict[str, Any]], mode: str) -
 def _run_verifier_pass(findings: list[dict[str, Any]], runtime: LocalOllama) -> list[dict[str, Any]]:
     """Ask Gemma at temperature 0 whether each quote supports its claim.
 
-    Drops findings where Gemma says 'no'.  'partly' is retained.
-    Records 'verifier_agrees' in the finding's support list when verdict is yes/partly.
+    - 'yes'   → keep, add 'verifier_agrees' badge.
+    - 'partly' → keep, add 'verifier_agrees' badge (partial support is still grounded).
+    - 'no'    → drop the finding entirely.
+    - error   → keep with 'unverified' badge (fail-open for individual verifier errors,
+                 but the badge tells the UI the check did not pass cleanly).
     """
     kept: list[dict[str, Any]] = []
     for finding in findings:
         claim = finding.get("claim", "")
         evidence = finding.get("evidence", [])
         if not evidence:
-            kept.append(finding)
+            # No citations at all – we cannot verify; mark unverified and keep.
+            support = list(finding.get("support", []))
+            if "unverified" not in support:
+                support.append("unverified")
+            kept.append({**finding, "support": support})
             continue
 
-        all_pass = True
+        dropped = False
+        verifier_error = False
         for citation in evidence:
             quote = citation.get("quote", "")
             if not quote:
@@ -250,18 +272,23 @@ def _run_verifier_pass(findings: list[dict[str, Any]], runtime: LocalOllama) -> 
                 payload = _parse_json(raw)
                 verdict = payload.get("verdict", "yes")
                 if verdict == "no":
-                    all_pass = False
+                    dropped = True
                     break
             except Exception:
-                # If verifier errors, retain the finding (fail open for verifier only)
-                pass
+                # Verifier errored for this citation – mark but do not drop.
+                verifier_error = True
 
-        if all_pass:
-            support = finding.get("support", [])
+        if dropped:
+            continue  # finding rejected by verifier
+
+        support = list(finding.get("support", []))
+        if verifier_error:
+            if "unverified" not in support:
+                support.append("unverified")
+        else:
             if "verifier_agrees" not in support:
-                support = list(support) + ["verifier_agrees"]
-                finding = {**finding, "support": support}
-            kept.append(finding)
+                support.append("verifier_agrees")
+        kept.append({**finding, "support": support})
     return kept
 
 

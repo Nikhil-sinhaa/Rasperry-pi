@@ -1,66 +1,65 @@
-# Dataset Sources and Licences
-<!-- Member 3 deliverable – docs/datasets.md -->
-<!-- Maps to submission gate G4: dataset sources and licences disclosed -->
+# Dataset Sources, Licences, and Preparation
 
-All documents in `samples/` are **entirely fictional** and were created by the
-project team for the sole purpose of testing the PS2 Legal Triage application.
-No real persons, organisations, addresses, or transactions are represented.
+> **Owner:** Member 3 (content) / Member 4 (gate G4)
+> **Gate:** G4 – dataset sources and licences disclosed; no private data committed.
 
-## Corpus summary
+---
 
-| File | Type | Pages | Source | Licence |
-|------|------|-------|--------|---------|
-| `demo_rental_agreement.txt` | Rental agreement | 1 (TXT) | Team-authored fictional | CC0 (team waives copyright) |
-| `adversarial_injection_test.txt` | Adversarial injection | 1 (TXT) | Team-authored | CC0 |
-| `rental_agreement_2.txt` | Rental agreement | 1 (TXT) | Team-authored fictional | CC0 |
-| `employment_offer_letter.txt` | Employment offer | 1 (TXT) | Team-authored fictional | CC0 |
-| `service_agreement.txt` | Service/SaaS | 1 (TXT) | Team-authored fictional | CC0 |
-| `legal_notice.txt` | Legal notice (demand) | 1 (TXT) | Team-authored fictional | CC0 |
-| `nda.txt` | Non-disclosure agreement | 1 (TXT) | Team-authored fictional | CC0 |
-| `loan_agreement.txt` | Loan agreement | 1 (TXT) | Team-authored fictional | CC0 |
-| `terms_of_service.txt` | Terms of service | 1 (TXT) | Team-authored fictional | CC0 |
-| `long_rental_agreement.txt` | Multi-section rental | 8 sections (TXT) | Team-authored fictional | CC0 |
+## Bundled Sample Files
 
-## Privacy statement
+These files are committed to the repository and used in automated tests and the demo.
 
-- No real document belonging to any person, organisation, or client was used.
-- All names, amounts, dates, and addresses are invented.
-- No document contains personal data as defined by applicable data protection law.
-- No CUAD documents were used in the current corpus. If CUAD samples are added in
-  future, they must be cited as: Hendrycks et al., "CUAD: An Expert-Annotated NLP
-  Dataset for Legal Contract Review," NeurIPS 2021, licensed CC BY 4.0.
+| File | Type | Source | Licence | Notes |
+|------|------|--------|---------|-------|
+| `samples/demo_rental_agreement.txt` | Synthetic fictional rental agreement | Written by project team | MIT (same as repo) | No real parties or addresses |
+| `samples/adversarial_injection_test.txt` | Synthetic adversarial injection test | Written by project team | MIT | Contains AI-instruction text in document body for security testing |
 
-## Gold evaluation cases
+These files contain no personal data, real legal documents, or non-redistributable text.
 
-| File | Cases | Document |
-|------|-------|----------|
-| `eval/gold/rental1_gold.json` | 14 | `demo_rental_agreement.txt` |
-| `eval/gold/rental2_gold.json` | 8 | `rental_agreement_2.txt` |
-| `eval/gold/employment_gold.json` | 8 | `employment_offer_letter.txt` |
-| `eval/gold/service_gold.json` | 7 | `service_agreement.txt` |
-| `eval/gold/notice_gold.json` | 4 | `legal_notice.txt` |
-| `eval/gold/nda_gold.json` | 4 | `nda.txt` |
-| `eval/gold/loan_gold.json` | 7 | `loan_agreement.txt` |
-| `eval/gold/long_rental_gold.json` | 9 | `long_rental_agreement.txt` |
+---
 
-Total: 61 cases across 8 document types.
+## CUAD v1 (Optional Benchmark Dataset)
 
-## Layout variants covered
+| Field | Value |
+|-------|-------|
+| Name | CUAD: Contract Understanding Atticus Dataset |
+| Authors | Hendrycks et al., NeurIPS 2021 Datasets and Benchmarks Track |
+| Paper | https://arxiv.org/abs/2103.06268 |
+| Source | https://www.atticusprojectai.org/cuad |
+| Licence | **CC BY 4.0** — attribution required; no restrictions on use or redistribution with attribution |
+| Attribution | "CUAD: An Expert-Annotated NLP Dataset for Legal Contract Review", Hendrycks et al., 2021 |
+| What it contains | 510 commercial contracts from EDGAR (SEC public filings) with 13 000+ expert annotations |
+| File in this repo | `scripts/data.zip` (includes `CUADv1.json`, `test.json`, `train_separate_questions.json`) |
+| Generated output | `data/cuad_eval/contracts/` — **excluded from git** via `.gitignore` |
 
-- ☑ Plain prose with numbered clauses (rental, employment, NDA)
-- ☑ Itemised payment schedule with multiple amounts (service agreement, loan)
-- ☑ Short-form legal notice with demand and deadline
-- ☑ Multi-section long document with page markers (long rental)
-- ☑ Terms of service with unilateral-change and auto-renewal clauses
-- ☐ Two-column PDF layout – not yet available; add before code freeze
-- ☐ Scanned/image PDF – not supported (OCR not implemented; documented in known-limitations.md)
-- ☐ DOCX format – supported by ingestion after Member 3 addition
+> **Important:** CUAD covers commercial contracts only. Results from the CUAD benchmark do not prove
+> accuracy on rental, employment, or consumer documents.
 
-## How to add more documents
+### How to use
 
-1. Create a fictional document with no real personal data.
-2. Name it descriptively (e.g. `franchise_agreement.txt`).
-3. Place it in `samples/`.
-4. Add gold cases to a new file in `eval/gold/` following the schema in existing files.
-5. Add a row to the table above and confirm the licence.
-6. Never commit a real person's document.
+```bash
+make cuad-eval
+# Extracts CUADv1.json, generates gold cases, scores the agent, writes evidence/cuad-eval.json
+```
+
+See [README.md §E](../README.md) for full instructions.
+
+---
+
+## Potential Future Datasets (Not Currently Used)
+
+The PS2 guide mentions these optional references. **None are committed to this repository.**
+Verify their licence and access terms independently before use.
+
+| Dataset | URL | Licence status |
+|---------|-----|----------------|
+| India Code | https://www.indiacode.nic.in | Bulk-use/redistribution terms not verified in the guide — check before using |
+| Open India Law | Various sources | Large mixed-source dataset; some source terms unknown — check before using |
+
+---
+
+## No Private Data Committed
+
+A secret scan was run with `git grep` before each push. No private documents, personal data,
+API keys, tokens, or `.env` files are present in the repository. The `.gitignore` explicitly
+excludes `.env` and `data/cuad_eval/`.

@@ -161,12 +161,39 @@ class LocalOllama:
             )
         return {"chat_model": self.chat_model, "embedding_model": self.embedding_model, "runtime": "Ollama local API"}
 
-    def embed(self, texts: list[str], batch_size: int = 24) -> np.ndarray:
+    def embed(
+        self,
+        texts: list[str],
+        batch_size: int = 24,
+        is_query: bool = False,
+    ) -> np.ndarray:
+        """Embed *texts* using the local embedding model.
+
+        For ``nomic-embed-text``, the model performs significantly better when
+        documents are prefixed with ``search_document:`` and queries with
+        ``search_query:``.  Other embedding models receive the text as-is.
+
+        Parameters
+        ----------
+        texts:
+            List of text strings to embed.
+        batch_size:
+            Number of texts sent in a single Ollama API call.
+        is_query:
+            True  → prefix each text with ``search_query:``  (for user questions).
+            False → prefix each text with ``search_document:`` (for stored chunks).
+        """
         if not texts:
             return np.empty((0, 0), dtype=np.float32)
+
+        # Apply nomic-embed-text task prefixes when the model name matches.
+        _nomic = "nomic-embed-text" in self.embedding_model.lower()
+        _prefix = ("search_query: " if is_query else "search_document: ") if _nomic else ""
+        prefixed_texts = [f"{_prefix}{t}" if _prefix else t for t in texts]
+
         vectors: list[list[float]] = []
-        for start in range(0, len(texts), batch_size):
-            batch = texts[start : start + batch_size]
+        for start in range(0, len(prefixed_texts), batch_size):
+            batch = prefixed_texts[start : start + batch_size]
             result = self._request(
                 "POST",
                 "/api/embed",
@@ -189,6 +216,7 @@ class LocalOllama:
         norms = np.linalg.norm(array, axis=1, keepdims=True)
         norms[norms == 0] = 1.0
         return array / norms
+
 
     def chat_json(self, system_prompt: str, user_prompt: str) -> str:
         result = self._request(

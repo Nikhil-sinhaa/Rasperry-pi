@@ -82,9 +82,14 @@ _DISAMBIG_SYSTEM = (
 # ── keep these anchored with \b to avoid false positives ──────────────────
 LEGAL_VERDICT_HARD_PATTERNS = [
     # Enforceability / legality questions
-    r"\bis (?:this|it|the \w+) (?:enforceable|unenforceable|illegal)\b",
+    # Use .{0,40} to allow words between subject and verdict adjective
+    # e.g. "Is this clause enforceable?", "Is this agreement illegal?"
+    r"\bis (?:this|it)\b.{0,40}\b(?:enforceable|unenforceable|illegal)\b",
+    r"\bis (?:the \w+) (?:enforceable|unenforceable|illegal)\b",
     r"\b(?:enforceability|legal validity)\b",
     r"\bdoes this (?:violate|break) (?:the )?law\b",
+    # "Is this/it [<words>] legal [under ...]?" — e.g. "Is this late fee legal under Indian law?"
+    r"\bis (?:this|it)\b.{0,40}\blegal\b(?:\s+(?:under|in|per|according)\b)?",
     r"\bis (?:this|it|the \w+ clause) (?:legal|illegal|allowed|permitted|prohibited)(?:\s+under\b)?",
     r"\bwill a court (?:uphold|enforce|reject|void|nullify|strike down)\b",
     r"\b(?:can|could) a court\b",
@@ -96,7 +101,7 @@ LEGAL_VERDICT_HARD_PATTERNS = [
     r"\bcan (?:my landlord|the landlord|my employer|the employer|they) (?:legally )?(?:evict|throw me out|fire|terminate|sue|do this)\b",
     r"\b(?:can i be evicted|will i be evicted|can i be fired|will i be evicted|can (?:he|she|they) evict me)\b",
     r"\bis it legal to\b",
-    r"\bdetermine whether .*\b(?:legal|illegal|enforceable|void|valid)\b",
+    r"\bdetermine whether .{0,80}\b(?:legal|illegal|enforceable|void|valid)\b",
     # Non-compete / restraint-of-trade questions
     r"\b(?:non.?compete|restraint of trade)\b.*\b(?:allowed|legal|valid|enforceable|apply|applicable)\b",
     r"\b(?:allowed|applicable|enforceable)\b.*\b(?:non.?compete|restraint of trade)\b",

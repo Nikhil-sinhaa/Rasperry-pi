@@ -77,7 +77,7 @@ netstat -an | Select-String "11434"
 
 ## Step 2 – Pull the chat model (online, setup phase only)
 
-The application defaults to `gemma4:e2b`.  The guide also supports the Gemma 3n class
+The application defaults to `gemma4:e4b`.  The guide also supports the Gemma 3n class
 (preferred) and Gemma 4 E4B.  Pull whichever fits your hardware:
 
 ```bash
@@ -87,7 +87,7 @@ ollama pull gemma3n:e2b
 # Alternative: Gemma 3n E4B (~4 B effective parameters, more capable)
 ollama pull gemma3n:e4b
 
-# Alternative: Gemma 4 E2B (default in config.py)
+# Alternative: Gemma 4 E2B
 ollama pull gemma4:e2b
 
 # Alternative: Gemma 4 E4B (largest, requires more RAM)
@@ -201,7 +201,7 @@ export OLLAMA_NUM_PREDICT=1600 # max tokens per response
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `OLLAMA_BASE_URL` | `http://127.0.0.1:11434` | Ollama API URL (app-side) |
-| `OLLAMA_MODEL` | `gemma4:e2b` | Chat model tag |
+| `OLLAMA_MODEL` | `gemma4:e4b` | Chat model tag |
 | `OLLAMA_EMBED_MODEL` | `nomic-embed-text` | Embedding model tag |
 | `OLLAMA_NO_CLOUD` | _(unset)_ | Set to `1` in Ollama server process to disable cloud features |
 | `OLLAMA_HOST` | _(Ollama default)_ | Set to `127.0.0.1:11434` in Ollama server process to bind loopback only |

@@ -86,7 +86,7 @@ class Settings:
                 os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
             ),
             chat_model=validate_local_model_name(
-                os.getenv("OLLAMA_MODEL", "gemma4:e2b"), "OLLAMA_MODEL"
+                os.getenv("OLLAMA_MODEL", "gemma4:e4b"), "OLLAMA_MODEL"
             ),
             embedding_model=validate_local_model_name(
                 os.getenv("OLLAMA_EMBED_MODEL", "nomic-embed-text"), "OLLAMA_EMBED_MODEL"

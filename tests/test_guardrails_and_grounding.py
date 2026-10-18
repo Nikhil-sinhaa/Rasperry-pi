@@ -486,6 +486,7 @@ def test_pipeline_drops_invented_quote_wrong_source_id_and_legal_verdict_claim(m
     - findings with fabricated source IDs
     - findings that assert legal enforceability
     """
+    import dataclasses
     import json
 
     from legal_triage import agent as agent_module
@@ -507,8 +508,10 @@ def test_pipeline_drops_invented_quote_wrong_source_id_and_legal_verdict_claim(m
     runtime.embed.side_effect = _embed
     runtime.chat_json.return_value = CANNED_JSON_WITH_BAD_FINDINGS
 
-    # Ensure we go past the retrieval threshold
-    monkeypatch.setattr(agent_module.SETTINGS, "min_retrieval_similarity", -1.0)
+    # SETTINGS is a frozen dataclass; use dataclasses.replace() to create a copy with the
+    # threshold overridden, then patch the module-level name (not the frozen attribute).
+    relaxed_settings = dataclasses.replace(agent_module.SETTINGS, min_retrieval_similarity=-1.0)
+    monkeypatch.setattr(agent_module, "SETTINGS", relaxed_settings)
 
     result = analyze(
         "What are the payment terms?",
@@ -520,3 +523,4 @@ def test_pipeline_drops_invented_quote_wrong_source_id_and_legal_verdict_claim(m
     # All three bad findings must be dropped – abstention or empty findings
     findings = result.get("findings", [])
     assert findings == [], f"Expected no validated findings, got: {findings}"
+

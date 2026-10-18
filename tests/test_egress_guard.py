@@ -13,6 +13,7 @@ the OS sees the connect(); for loopback addresses the OS will refuse on port 1
 """
 from __future__ import annotations
 
+import re
 import socket
 import unittest
 
@@ -136,12 +137,19 @@ class TestEgressGuardIdempotency(unittest.TestCase):
 class TestStaticAuditDetectsGuard(unittest.TestCase):
     """Verify that static_privacy_audit logic detects a missing egress guard."""
 
+    # Regex matching a genuine module-level call (not a def/class definition line).
+    # Kept in sync with scripts/static_privacy_audit.py.
+    _MODULE_LEVEL_CALL_RE = re.compile(
+        r"^(?![ \t]*(?:def|class)\s).*\binstall_egress_guard\(\)",
+        re.MULTILINE,
+    )
+
     def _run_egress_checks(self, runtime_source: str) -> list[str]:
         """Run only the egress-guard portion of the static audit on a given source string."""
         errors: list[str] = []
         if "def install_egress_guard" not in runtime_source:
             errors.append("Runtime egress guard function install_egress_guard is missing.")
-        if "install_egress_guard()" not in runtime_source:
+        if not self._MODULE_LEVEL_CALL_RE.search(runtime_source):
             errors.append("install_egress_guard() is not called at module level.")
         if "socket.socket.connect" not in runtime_source:
             errors.append("Egress guard does not patch socket.socket.connect.")

@@ -229,11 +229,13 @@ _TOPIC_RULES: list[tuple[str, list[str]]] = [
     ("money", ["inr", "usd", "eur", "gbp", "rs.", "rupee", "amount", "fee", "rent", "deposit",
                 "penalty", "fine", "charge", "payment", "refund", "interest", "lakh", "crore",
                 "salary", "cost", "price", "compensation", "damages"]),
-    ("deadlines", ["days", "months", "years", "deadline", "due date", "notice period",
-                   "within", "before", "after", "schedule", "by the", "no later than", "expiry",
-                   "expire", "renewal", "term"]),
+    # termination must come before deadlines: "terminate"/"terminat" would otherwise match
+    # the bare "term" keyword in deadlines via substring match.
     ("termination", ["terminat", "cancel", "end the agreement", "end of contract",
                      "expir", "dissolv", "rescind", "exit clause", "break clause"]),
+    ("deadlines", ["days", "months", "years", "deadline", "due date", "notice period",
+                   "within", "before", "after", "schedule", "by the", "no later than", "expiry",
+                   "expire", "renewal"]),
     ("obligations", ["shall", "must", "required to", "obliged", "duty", "responsible",
                      "obligation", "covenant", "undertake"]),
     ("liability", ["liable", "liability", "indemnif", "warrant", "guarantee", "limitation",

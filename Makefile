@@ -1,4 +1,6 @@
-.PHONY: install run test audit eval versions cuad-gold cuad-eval secret-scan offline-proof
+.PHONY: install run test audit eval versions cuad-gold cuad-eval secret-scan offline-proof \
+        benchmark-models benchmark-one benchmark-quick sweep-threshold hand-review \
+        hand-review-triage pick-citation-sample eval-full phase3
 
 install:
 	python -m pip install -r requirements.txt
@@ -46,3 +48,68 @@ versions:
 offline-proof:
 	@echo "Running offline proof (macOS pfctl – requires sudo) …"
 	bash scripts/offline_proof.sh $(SAMPLE)
+
+# ---------------------------------------------------------------------------
+# Phase 3 – Evaluation
+# ---------------------------------------------------------------------------
+
+# Benchmark all four candidate models. Writes evidence/model-benchmark.md
+# and evidence/model-benchmark.json. Requires Ollama + all four models pulled.
+benchmark-models:
+	@echo "Phase 3: benchmarking gemma3n:e2b, gemma3n:e4b, gemma4:e2b, gemma4:e4b …"
+	python scripts/benchmark_models.py \
+	  --output evidence/model-benchmark.md \
+	  --json-output evidence/model-benchmark.json
+
+# Benchmark a single model (faster for iteration). Usage: make benchmark-one MODEL=gemma3n:e2b
+benchmark-one:
+	python scripts/benchmark_models.py --models $(MODEL) \
+	  --output evidence/model-benchmark.md \
+	  --json-output evidence/model-benchmark.json
+
+# Latency + RAM probe only (no full gold eval, ~2 min per model)
+benchmark-quick:
+	python scripts/benchmark_models.py --representative-only \
+	  --output evidence/model-benchmark.md \
+	  --json-output evidence/model-benchmark.json
+
+# Sweep retrieval similarity threshold 0.15–0.45 against gold eval.
+# Writes evidence/retrieval-threshold-sweep.md.
+sweep-threshold:
+	@echo "Phase 3: sweeping retrieval threshold …"
+	python scripts/sweep_threshold.py \
+	  --eval-dir eval/gold/ \
+	  --output evidence/retrieval-threshold-sweep.md
+
+# Run agent on unseen documents and write evidence/hand-review.md.
+# Reviewer fills in the Verdict column manually.
+hand-review:
+	@echo "Phase 3: collecting findings on unseen documents …"
+	python scripts/hand_review.py --output evidence/hand-review.md
+
+hand-review-triage:
+	python scripts/hand_review.py \
+	  --mode triage --output evidence/hand-review-triage.md
+
+# Generate the citation sample table from the gold eval JSON output.
+# Run AFTER: make eval-full
+pick-citation-sample:
+	@echo "Phase 3: picking citation sample from live eval output …"
+	python scripts/pick_citation_sample.py \
+	  --source evidence/model-evaluation.json --n 20
+
+# Run full gold eval and write JSON + markdown reports
+eval-full:
+	python scripts/run_evals.py \
+	  --output evidence/model-evaluation.json \
+	  --markdown evidence/model-evaluation.md
+
+# One-shot Phase 3 sequence (allow ~60 min per model on Pi)
+phase3: eval-full benchmark-models sweep-threshold hand-review pick-citation-sample cuad-eval
+	@echo ""
+	@echo "Phase 3 complete. Fill in evidence files:"
+	@echo "  evidence/model-benchmark.md           -- update Chosen Default section"
+	@echo "  evidence/retrieval-threshold-sweep.md -- confirm chosen threshold"
+	@echo "  evidence/hand-review.md               -- fill in Verdict column"
+	@echo "  evidence/citation-review.md           -- fill in Verdict column"
+	@echo "  evidence/cuad-eval.json               -- copy by-category table to model-benchmark.md"

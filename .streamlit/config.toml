@@ -1,0 +1,21 @@
+[server]
+# Bind to loopback only – never expose this app to a network interface.
+address = "127.0.0.1"
+port = 8501
+# Disable the "Are you sure you want to leave?" dialog (improves demo UX).
+enableXsrfProtection = true
+# Do not allow Streamlit to write uploaded files to disk.
+maxUploadSize = 50
+
+[browser]
+# Disable all Streamlit usage-statistics collection.
+gatherUsageStats = false
+# Do not auto-open a browser tab when running non-interactively (e.g. in CI).
+serverAddress = "127.0.0.1"
+
+[runner]
+# Suppress magic-command deprecation noise in logs.
+magicEnabled = false
+
+[theme]
+base = "light"

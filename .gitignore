@@ -12,12 +12,21 @@ build/
 venv/
 env/
 
+# Test / coverage artefacts
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+
 # Environment / secrets
 .env
 *.env
 
 # CUAD evaluation data (CC BY 4.0 – exclude from git; re-generate with make cuad-gold)
+# Download instructions: README.md §"CUAD evaluation setup"
 data/cuad_eval/
+# Large data archives (download separately; see README)
+scripts/data.zip
 
 # Evidence outputs that contain machine-specific run data
 evidence/cuad-eval.json
@@ -25,8 +34,13 @@ evidence/model-evaluation.txt
 evidence/network-monitor.txt
 evidence/retrieval-threshold-sweep.md
 
+# Scratch / one-off files
+Untitled.docx
+README_SHORT.md
+
 # macOS
 .DS_Store
+**/.DS_Store
 
 # IDE
 .idea/

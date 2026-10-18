@@ -1,7 +1,7 @@
-"""Tests for Member 1 tasks.
+"""Guardrails, grounding, and retrieval tests.
 
 Covers:
-- Verdict filter: all 13 probe questions route correctly (no false positives, correct true positives)
+- Verdict filter: probe questions route correctly (no false positives, correct true positives)
 - Grounding: number / date / duration mismatch causes finding to be dropped
 - Grounding: topic and attention assignment
 - Retrieval: retrieve_triage_per_topic with fake embeddings

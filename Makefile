@@ -1,4 +1,4 @@
-.PHONY: install run test audit eval versions cuad-gold cuad-eval secret-scan
+.PHONY: install run test audit eval versions cuad-gold cuad-eval secret-scan offline-proof
 
 install:
 	python -m pip install -r requirements.txt
@@ -42,3 +42,7 @@ secret-scan:
 
 versions:
 	bash scripts/collect_versions.sh
+
+offline-proof:
+	@echo "Running offline proof (macOS pfctl – requires sudo) …"
+	bash scripts/offline_proof.sh $(SAMPLE)

@@ -23,11 +23,26 @@ ALLOWED_CATEGORIES = {
 }
 MIN_QUOTE_CHARS = 24
 LEGAL_JUDGMENT_PATTERNS = [
-    r"\b(?:is|is not|isn't|would be|will be|may be)\s+(?:un)?enforceable\b",
-    r"\b(?:is|is not|isn't|would be|will be|may be)\s+(?:il)?legal\b",
+    # Bare copula: "is enforceable", "is not enforceable", "is illegal"
+    r"\b(?:is|is not|isn't)\s+(?:un)?enforceable\b",
+    r"\b(?:is|is not|isn't)\s+(?:il)?legal\b",
     r"\b(?:is|would be|may be)\s+(?:invalid|valid|void|unlawful)\b",
+    # Hedged / modal: "probably unenforceable", "likely illegal", "would not be enforceable"
+    r"\b(?:probably|likely|clearly|certainly|arguably|would\s+(?:not\s+)?be|will\s+(?:not\s+)?be|"
+    r"may\s+(?:well\s+)?be|might\s+be|could\s+be|appears\s+to\s+be|seems\s+to\s+be)\s+"
+    r"(?:un)?enforceable\b",
+    r"\b(?:probably|likely|clearly|certainly|arguably|would\s+(?:not\s+)?be|will\s+(?:not\s+)?be|"
+    r"may\s+(?:well\s+)?be|might\s+be|could\s+be|appears\s+to\s+be|seems\s+to\s+be)\s+"
+    r"(?:il)?legal\b",
+    r"\b(?:probably|likely|clearly|certainly|arguably|would\s+(?:not\s+)?be|will\s+(?:not\s+)?be|"
+    r"may\s+(?:well\s+)?be|might\s+be|could\s+be|appears\s+to\s+be|seems\s+to\s+be)\s+"
+    r"(?:invalid|void|unlawful|unenforceable)\b",
+    # "violates law" / "contrary to law"
     r"\bviolates?\s+(?:the\s+)?law\b",
     r"\bcontrary to (?:the )?law\b",
+    # "not enforceable under …"
+    r"\bnot\s+enforceable\b",
+    r"\bnot\s+legally\s+(?:valid|binding|enforceable)\b",
 ]
 ATTRIBUTED_TEXT_PATTERN = re.compile(
     r"^(?:the (?:document|agreement|contract|clause) (?:says|states|provides|specifies|describes)|"
@@ -62,18 +77,56 @@ _DATE_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Durations: "30 days", "11 months", "2 years"
+# Durations: "30 days", "11 months", "2 years"; also spelled-out: "thirty days"
+_WORD_NUMBERS = (
+    r"one|two|three|four|five|six|seven|eight|nine|ten|"
+    r"eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|"
+    r"thirty|forty|fifty|sixty|seventy|eighty|ninety|"
+    r"hundred|thousand|lakh|lakhs|crore|crores"
+)
 _DURATION_RE = re.compile(
-    r"\b\d+\s*(?:day|days|month|months|year|years|week|weeks|hour|hours)\b",
+    rf"\b(?:\d+|{_WORD_NUMBERS})(?:\s*(?:-|to)\s*(?:\d+|{_WORD_NUMBERS}))?\s*"
+    r"(?:day|days|month|months|year|years|week|weeks|hour|hours)\b",
     re.IGNORECASE,
 )
 
+# Mapping of spelled-out cardinals → digit strings (for normalisation only)
+_WORD_TO_NUM: dict[str, str] = {
+    "one": "1", "two": "2", "three": "3", "four": "4", "five": "5",
+    "six": "6", "seven": "7", "eight": "8", "nine": "9", "ten": "10",
+    "eleven": "11", "twelve": "12", "thirteen": "13", "fourteen": "14",
+    "fifteen": "15", "sixteen": "16", "seventeen": "17", "eighteen": "18",
+    "nineteen": "19", "twenty": "20", "thirty": "30", "forty": "40",
+    "fifty": "50", "sixty": "60", "seventy": "70", "eighty": "80",
+    "ninety": "90", "hundred": "100", "thousand": "1000",
+    # Indian number words: kept as normalised suffixes so '5 lakh' == '500000'
+    "lakh": "00000", "lakhs": "00000",
+    "crore": "0000000", "crores": "0000000",
+}
+
+
+def _normalize_spelled_numbers(text: str) -> str:
+    """Replace spelled-out cardinals with their digit equivalents.
+
+    Only whole words are replaced, so 'second' (ordinal) is not touched.
+    This is applied before digit extraction so the patterns can match.
+    """
+    lower = text.casefold()
+    for word, digit in _WORD_TO_NUM.items():
+        lower = re.sub(rf"\b{re.escape(word)}\b", digit, lower)
+    return lower
+
 
 def _extract_facts(text: str) -> list[str]:
-    """Return a list of normalised number/date/duration tokens found in *text*."""
+    """Return a list of normalised number/date/duration tokens found in *text*.
+
+    Spelled-out numbers ("thirty days", "two years") are converted to digits
+    before pattern matching so that they compare equal to their numeral forms.
+    """
+    normalised_text = _normalize_spelled_numbers(text)
     facts: list[str] = []
     for pattern in (_NUMBER_RE, _DATE_RE, _DURATION_RE):
-        for m in pattern.finditer(text):
+        for m in pattern.finditer(normalised_text):
             facts.append(re.sub(r"\s+", " ", m.group()).strip().casefold())
     return facts
 
@@ -121,18 +174,51 @@ def contains_unqualified_legal_judgment(claim: str, category: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Quote normalisation helpers (public, used by tests)
+# Quote normalisation helpers (public, used by tests and by ingestion callers)
 # ---------------------------------------------------------------------------
+
+import unicodedata as _unicodedata
+
+
+def normalize_text_for_matching(text: str) -> str:
+    """Canonical normalisation for quote matching.
+
+    Applied identically to the stored chunk text and to the model-emitted quote
+    so that Word/PDF typography differences never cause false abstentions.
+
+    Steps:
+    1. NFKC decomposition (ligatures, full-width chars, etc.)
+    2. Curly / 'smart' quote → ASCII quote
+    3. Em-dash / en-dash → plain hyphen
+    4. Soft hyphen (U+00AD) removal
+    5. Collapse all whitespace (including non-breaking spaces) to a single space
+    6. Strip and casefolding
+    """
+    # NFKC handles ligatures (ﬁ→fi), full-width digits, etc.
+    t = _unicodedata.normalize("NFKC", text)
+    # Curly quotes → straight
+    t = t.replace("\u2018", "'").replace("\u2019", "'")   # '' → '
+    t = t.replace("\u201c", '"').replace("\u201d", '"')   # "" → "
+    t = t.replace("\u2032", "'").replace("\u2033", '"')   # prime marks
+    # Dashes → plain hyphen (for matching only – display keeps originals)
+    t = t.replace("\u2013", "-").replace("\u2014", "-")   # en/em dash
+    t = t.replace("\u2012", "-").replace("\u2015", "-")   # figure/horizontal bar
+    # Remove soft hyphen (U+00AD) – appears in justified/hyphenated PDFs
+    t = t.replace("\u00ad", "")
+    # Collapse any whitespace (including \xa0, \u202f, \t, \n) to single space
+    t = re.sub(r"[\s\xa0\u202f\u2009\u200b]+", " ", t)
+    return t.strip().casefold()
 
 
 def normalize_quote(text: str) -> str:
-    return re.sub(r"\s+", " ", text).strip().casefold()
+    """Legacy alias – delegates to normalize_text_for_matching."""
+    return normalize_text_for_matching(text)
 
 
 def quote_is_verbatim(quote: str, source_text: str, min_chars: int = MIN_QUOTE_CHARS) -> bool:
-    if not isinstance(quote, str) or len(normalize_quote(quote)) < min_chars:
+    if not isinstance(quote, str) or len(normalize_text_for_matching(quote)) < min_chars:
         return False
-    return normalize_quote(quote) in normalize_quote(source_text)
+    return normalize_text_for_matching(quote) in normalize_text_for_matching(source_text)
 
 
 # ---------------------------------------------------------------------------

@@ -203,6 +203,7 @@ def render_result(result: dict, title: str = "Analysis", question: str = "") -> 
             mime="text/markdown",
             use_container_width=True,
             help="Save this result as a Markdown file to your own disk",
+            key=f"dl_{title.lower().replace(' ', '_')}",
         )
 
     # --- Coverage line (triage only) ---

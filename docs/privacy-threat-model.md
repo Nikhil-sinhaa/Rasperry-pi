@@ -58,19 +58,45 @@ documented here so judges and users can understand the actual scope:
 - **Gemma correctness:** the model may hallucinate even with grounding checks.
 - **Process memory encryption:** session state, embeddings and model context live
   in plaintext RAM.
+- **OS swap / virtual memory:** the operating system can page any part of the
+  Python process's address space (document text, chunk embeddings, model prompts)
+  to the swap partition or swap file on disk.  This happens transparently and
+  silently.  The application has no control over when or whether the OS pages
+  memory.  Mitigations:
+  - Disable swap before handling sensitive documents (`sudo swapoff -a` on
+    Linux, or "Turn off" in macOS Virtual Memory settings — note: macOS does
+    not support disabling swap).
+  - On macOS, the swap file is encrypted with the FileVault key at rest; FileVault
+    must be enabled for this protection to apply.
+  - On Linux, use LUKS-encrypted swap.
+  - The canary disk search (`scripts/canary_disk_search.sh`) searches common temp
+    directories but **does not** search the swap partition.
+  - This is a known, documented residual risk; do not claim it is mitigated.
 - **Multi-user OS isolation:** the app does not isolate concurrent OS users from
   each other's session data.
 - **Compromised packages / OS / runtime:** supply-chain attacks on transitive
-  dependencies or the OS are outside scope.
+  dependencies or the OS are outside scope.  See `evidence/dependency-review.md`
+  for the direct-dependency vulnerability assessment.
+- **Pillow (transitive dependency):** Streamlit pulls in Pillow as a transitive
+  dependency; the version bundled with `streamlit==1.50.0` has known CVEs.  Our
+  app does not expose Pillow's image-processing code paths to uploaded documents
+  (PDF text extraction uses pypdf, not Pillow), and the app runs on loopback only.
+  See `evidence/dependency-review.md` for the full assessment.
 - **OCR:** scanned PDFs are not processed; the limitation is stated in the UI.
 - **System-wide traffic inspection:** the egress guard covers the Python process
   only.  The Ollama *server* process must be isolated separately via
-  `OLLAMA_NO_CLOUD=1` and `OLLAMA_HOST=127.0.0.1:11434`.
+  `OLLAMA_NO_CLOUD=1` and `OLLAMA_HOST=127.0.0.1:11434`; see Reproducible
+  evidence protocol below.
 - **Making the host offline:** the application cannot prevent the OS or other
   processes from sending data; network-off must be verified by the operator.
 - **Ollama desktop update checks:** the desktop app may phone home at launch;
   start Ollama from the CLI with `OLLAMA_NO_CLOUD=1` or document this
   connection explicitly.
+- **Socket guard scope:** `install_egress_guard` patches `socket.socket.connect`.
+  It does not cover `socket.socket.connect_ex`, UDP `sendto`, or DNS lookups
+  made by the OS resolver.  Treat this as defence-in-depth alongside the
+  network namespace / `pfctl` evidence; do not rely on it as the sole proof
+  of network isolation.
 
 ## Controls-to-evidence mapping
 

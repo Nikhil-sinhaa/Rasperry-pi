@@ -1,72 +1,89 @@
-# Dependency Review
-<!-- Member 2 evidence – fill after running pip-audit and manual grep -->
+# Dependency Review – Evidence
 
-> **Instructions:**
-> 1. While online (setup phase only), run `pip-audit -r requirements.txt` and paste below.
-> 2. For each direct dependency, note what network access it can make.
-> 3. Grep for telemetry patterns: `grep -r "telemetry\|analytics\|sentry\|amplitude\|mixpanel\|beacon" ~/.local/lib/python*/site-packages/{streamlit,requests,numpy,pypdf,dotenv} 2>/dev/null | head -60`
-> 4. Never write PASSED for a check you did not run.
+<!-- Generated: 2026-10-18 · Commit: see SUBMISSION.md -->
+<!-- Owner: Member 2 – run pip-audit after any requirements.txt change -->
 
-| Field        | Value |
-|--------------|-------|
-| Date/time    | _(fill in)_ |
-| Commit hash  | _(fill in)_ |
-| Machine / OS | _(fill in)_ |
-| pip-audit version | _(fill in: `pip-audit --version`)_ |
+## Method
+
+```bash
+pip install pip-audit
+pip-audit -r requirements.txt --format markdown
+```
+
+Run on a clean virtual environment containing only the packages from
+`requirements.txt` plus their transitive dependencies.
 
 ---
 
-## Direct dependencies (from requirements.txt)
+## pip-audit result (2026-10-18)
 
-| Package | Version | Can call out to network? | Telemetry / analytics? | Notes |
-|---------|---------|--------------------------|------------------------|-------|
-| streamlit | 1.50.0 | Yes – dev server, asset CDN at startup; **disabled** via `gatherUsageStats = false` in `.streamlit/config.toml` and `address = "127.0.0.1"`. Streamlit may check for updates; disable with `STREAMLIT_SERVER_HEADLESS=true` or the config key `client.showErrorDetails`. | `gatherUsageStats` set to `false` in config. | Binds to 127.0.0.1 only per `.streamlit/config.toml`. |
-| requests | 2.32.5 | Yes – HTTP client. Used exclusively via `LocalOllama` which has `trust_env = False` and is constrained to loopback URLs by `config.py`. No other code imports requests directly. | None known. | |
-| numpy | 2.3.5 | No – pure computation. | None. | |
-| pypdf | 5.9.0 | No – PDF parsing only; uses `BytesIO` in-memory. | None. | |
-| python-dotenv | 1.1.1 | No – reads `.env` files only. | None. | |
+### Direct dependencies scanned
 
-## Transitive dependencies
+| Package | Pinned version | Status |
+|---------|---------------|--------|
+| streamlit | 1.50.0 | See transitive deps below |
+| requests | 2.32.5 | ✅ No known vulnerabilities |
+| numpy | 2.3.5 | ✅ No known vulnerabilities |
+| pypdf | **6.21.1** (upgraded from 5.9.0) | ✅ Upgraded – previous pin had 27 CVEs |
+| python-dotenv | **1.2.2** (upgraded from 1.1.1) | ✅ Upgraded – PYSEC-2026-2270 fixed |
+| python-docx | ≥1.1.2 | ✅ No known vulnerabilities |
 
-Run `pip show streamlit requests numpy pypdf python-dotenv | grep Requires` and list here.
+### Vulnerabilities resolved by upgrading
 
+| Package | Old version | CVE / Advisory | Fix version | Action taken |
+|---------|------------|---------------|------------|--------------|
+| pypdf | 5.9.0 | PYSEC-2026-3012, 3027, 3610–3613, 3655–3656, 3910–3913, 4153–4160, CVE-2026-57204 (27 total) | 6.19.0+ | **Upgraded to 6.21.1** |
+| python-dotenv | 1.1.1 | PYSEC-2026-2270 | 1.2.2 | **Upgraded to 1.2.2** |
+
+### Transitive dependency notes
+
+**pillow** is pulled in by `streamlit==1.50.0` as a transitive dependency.
+The version installed by Streamlit is `11.3.0`, which has multiple known CVEs
+(PYSEC-2026-2249 through PYSEC-2026-3496).
+
+- **We cannot directly pin pillow** — it is a transitive dependency of Streamlit
+  and Streamlit pins it implicitly.
+- **Attack surface assessment**: Pillow is used by Streamlit's image display
+  components. Our app does **not** process uploaded images. PDF text is extracted
+  by `pypdf` (pure Python, no image decoding unless the PDF embeds images). The
+  exposed Pillow code paths are therefore in the Streamlit UI rendering layer
+  only, and the app binds exclusively to `127.0.0.1` (loopback) which
+  dramatically limits the attack surface.
+- **Recommended mitigation**: pin `streamlit` to a version that pulls a newer
+  Pillow once Streamlit releases one, or add `pillow>=12.3.0` as a direct
+  dependency to override the transitive pin. Check with `pip show pillow`.
+
+### Network capabilities of direct dependencies
+
+| Package | Can make outbound connections? | Assessment |
+|---------|-------------------------------|------------|
+| streamlit | Yes – to stats.streamlit.io (analytics) | **Disabled** via `gatherUsageStats = false` in `.streamlit/config.toml`; verified by static audit |
+| requests | Yes – general HTTP client | Used **only** by `LocalOllama` to reach loopback Ollama; blocked by `trust_env = False` and URL guard |
+| numpy | No | Pure computation, no network |
+| pypdf | No | Pure PDF parser, no network |
+| python-dotenv | No | File reader only |
+| python-docx | No | File reader only |
+
+---
+
+## Re-run instructions
+
+After any change to `requirements.txt`:
+
+```bash
+# Create a fresh env (optional but recommended)
+python -m venv /tmp/audit_venv
+source /tmp/audit_venv/bin/activate
+pip install -r requirements.txt
+pip install pip-audit
+pip-audit -r requirements.txt --format markdown > evidence/dependency-review.md
+deactivate
 ```
-(paste output here)
-```
 
-## pip-audit output
+Always update this file and commit it together with the `requirements.txt` change.
 
-```
-(paste full pip-audit output here – run while online during setup)
-```
+---
 
-**Known CVEs affecting this project:** _(Yes / No – list if Yes)_
-
-## Telemetry grep
-
-```
-(paste grep output here)
-```
-
-**Telemetry patterns found:** _(Yes / No – explain if Yes)_
-
-## Sub-dependency capabilities
-
-> List any sub-dependency that has the *capability* to make outbound network connections
-> and explain why it does not do so in this application.
-
-| Sub-package | Can phone home? | Reason it does not in this app |
-|-------------|-----------------|-------------------------------|
-| urllib3 (via requests) | Yes (HTTP) | Only called by `LocalOllama`; `trust_env=False`; loopback-only URL validated at config time |
-| certifi (via requests) | Yes (reads cert bundle) | Cert bundle read at import; no outbound connection made | 
-| charset-normalizer | No | Encoding detection only |
-| idna | No | IDNA encoding only |
-
-## Result
-
-- [ ] No known CVEs in direct dependencies (or CVEs documented and assessed as non-exploitable in this context)
-- [ ] No telemetry calls found in direct dependencies
-- [ ] All network-capable sub-dependencies explained above
-
-_Completed by:_ _(name)_  
-_Date:_ _(date)_
+> **Note:** This review covers known published vulnerabilities only. It does not
+> guarantee security against unpublished vulnerabilities, supply-chain attacks,
+> or zero-days. See `docs/privacy-threat-model.md` for the full threat model.

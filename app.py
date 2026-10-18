@@ -1,14 +1,63 @@
 from __future__ import annotations
 
+import json
+import os
 import textwrap
 from collections import defaultdict
 from datetime import datetime
+from pathlib import Path
 
 import streamlit as st
 from dotenv import load_dotenv
 
 # Load settings before importing modules that read environment variables.
 load_dotenv()
+
+# ---------------------------------------------------------------------------
+# Chat persistence (local JSON file)
+# ---------------------------------------------------------------------------
+
+CHAT_STORE_PATH = Path(__file__).parent / "chat_history.json"
+
+
+def load_chat_history() -> list[dict]:
+    """Load persisted chat messages from disk.  Returns [] on any error."""
+    try:
+        if CHAT_STORE_PATH.exists():
+            data = json.loads(CHAT_STORE_PATH.read_text(encoding="utf-8"))
+            if isinstance(data, list):
+                return data
+    except Exception:
+        pass
+    return []
+
+
+def save_chat_history(messages: list[dict]) -> None:
+    """Persist chat messages to disk.  Silently ignores errors."""
+    try:
+        # Only store serialisable fields (drop any non-JSON-safe values).
+        safe: list[dict] = []
+        for msg in messages:
+            entry: dict = {"role": msg.get("role", "")}
+            if msg.get("role") == "user":
+                entry["content"] = msg.get("content", "")
+            else:
+                entry["question"] = msg.get("question", "")
+                entry["mode"] = msg.get("mode", "")
+                entry["result"] = msg.get("result", {})
+            safe.append(entry)
+        CHAT_STORE_PATH.write_text(json.dumps(safe, ensure_ascii=False, indent=2), encoding="utf-8")
+    except Exception:
+        pass
+
+
+def clear_chat_history() -> None:
+    """Delete the persisted chat file from disk."""
+    try:
+        if CHAT_STORE_PATH.exists():
+            CHAT_STORE_PATH.unlink()
+    except Exception:
+        pass
 
 from legal_triage.agent import AnalysisError, analyze  # noqa: E402
 from legal_triage.checklist import (  # noqa: E402
@@ -93,6 +142,9 @@ def initialise_state() -> None:
     for key, value in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = value
+    # Restore chat history from disk on first load.
+    if not st.session_state.messages:
+        st.session_state.messages = load_chat_history()
 
 
 # ---------------------------------------------------------------------------
@@ -479,6 +531,7 @@ def run_and_store(question: str, mode: str) -> None:
     st.session_state.messages.append(
         {"role": "assistant", "question": question, "mode": mode, "result": result}
     )
+    save_chat_history(st.session_state.messages)
     render_result(result, "Whole-document triage" if mode == "triage" else "Answer", question=question)
     # Phase 4: after triage, show checklist and structured extraction (rule-based, no model)
     if mode == "triage" and not result.get("abstained"):
@@ -542,6 +595,7 @@ with st.sidebar:
         st.session_state.model_check = None
         if old_upload_key in st.session_state:
             del st.session_state[old_upload_key]
+        clear_chat_history()
         st.rerun()
 
 # --- Step 1: upload ---
@@ -592,10 +646,10 @@ if st.session_state.index_metadata:
 # --- Step 2: triage / question ---
 st.divider()
 st.subheader("2 · Triage or ask a question")
-if st.session_state.local_index is None:
-    st.info("Process at least one document to enable triage and question answering.")
-else:
-    # Replay transcript
+
+# Always replay persisted chat transcript (visible even after a page refresh
+# when the in-memory index is gone).
+if st.session_state.messages:
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             if message["role"] == "user":
@@ -608,6 +662,16 @@ else:
                 )
                 render_result(message.get("result", {}), mode_title, question=message.get("question", ""))
 
+# Interactive controls require an active in-memory index.
+if st.session_state.local_index is None:
+    if not st.session_state.messages:
+        st.info("Process at least one document to enable triage and question answering.")
+    else:
+        st.info(
+            "📂 Previous chat history shown above. "
+            "Re-upload and process the document to ask new questions."
+        )
+else:
     left, right = st.columns([1, 2])
     with left:
         if st.button("Run whole-document triage", type="primary", use_container_width=True, key="triage_btn"):
@@ -621,6 +685,7 @@ else:
     question = st.chat_input("Ask about a clause, obligation, deadline, penalty, or potential concern…")
     if question:
         st.session_state.messages.append({"role": "user", "content": question})
+        save_chat_history(st.session_state.messages)
         with st.chat_message("user"):
             st.write(question)
         with st.chat_message("assistant"):

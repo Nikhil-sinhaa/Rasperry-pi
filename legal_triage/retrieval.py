@@ -36,8 +36,59 @@ _HYBRID_ALPHA: float = 0.70   # weight for embedding score (1 - alpha goes to BM
 
 
 def _tokenize(text: str) -> list[str]:
-    """Simple whitespace + punctuation tokenizer for BM25."""
-    return re.findall(r"[a-z0-9',.-]+", text.casefold())
+    """Tokenizer for BM25 – handles Indian currency/number formatting.
+
+    * Normalises Indian comma-separated numbers (14,75,000 → 1475000)
+      so BM25 can match the digits regardless of comma placement.
+    * Keeps the rupee symbol ₹ as a standalone token.
+    * Strips trailing /- (common Indian currency suffix).
+    """
+    # Collapse Indian comma-formatted numbers to plain digit strings
+    normalised = re.sub(r'(\d(?:[,\d]{0,6}\d))\/-?', lambda m: m.group(1).replace(',', ''), text)
+    normalised = re.sub(r'(\d[\d,]*)\/-?', lambda m: m.group(1).replace(',', ''), normalised)
+    # Tokenize: include ₹ symbol and standard alphanum tokens
+    tokens = re.findall(r'[\u20b9₹]|[a-z0-9]+', normalised.casefold())
+    return tokens
+
+
+# Indian legal term expansions for query-time augmentation
+_LEGAL_TERM_EXPANSIONS: dict[str, list[str]] = {
+    "cheque":     ["cheque", "check", "draft", "negotiable instrument", "payment instrument"],
+    "bounced":    ["bounced", "dishonoured", "dishonored", "returned unpaid", "not honoured"],
+    "lakh":       ["lakh", "lac", "100000"],
+    "crore":      ["crore", "10000000"],
+    "rs":         ["rs", "inr", "rupees", "rupee"],
+    "hdfc":       ["hdfc", "bank"],
+    "icici":      ["icici", "bank"],
+    "sbi":        ["sbi", "state bank", "bank"],
+    "invoice":    ["invoice", "bill", "payment"],
+    "drawer":     ["drawer", "issuer", "payer"],
+    "drawee":     ["drawee", "payee", "recipient"],
+    "legal notice": ["legal notice", "demand notice", "notice"],
+    "section 138": ["section 138", "negotiable instruments act", "cheque dishonour"],
+}
+
+
+def _expand_legal_query(query: str) -> str:
+    """Expand Indian legal shorthand in a query to improve embedding and BM25 recall.
+
+    Returns the original query with expansions appended so that both the original
+    terms and their synonyms are embedded together.
+    """
+    lowered = query.casefold()
+    extras: list[str] = []
+    for term, synonyms in _LEGAL_TERM_EXPANSIONS.items():
+        if term in lowered:
+            # Add synonyms that aren't already in the query
+            extras.extend(s for s in synonyms if s not in lowered)
+    if not extras:
+        return query
+    # Append unique extras without duplicating existing words
+    seen: set[str] = set(lowered.split())
+    unique_extras = [e for e in extras if e not in seen]
+    if not unique_extras:
+        return query
+    return query + " " + " ".join(unique_extras)
 
 
 @dataclass
@@ -158,11 +209,15 @@ def hybrid_retrieve_question(
 
     hybrid_score = alpha * embed_score + (1 - alpha) * bm25_score
 
-    This improves recall for lexical legal terms (exact amounts, clause numbers,
-    party names) that dense embeddings sometimes dilute across similar neighbours.
-    Falls back to pure embedding retrieval when the index has no BM25 data.
+    Indian legal documents use domain-specific shorthand (cheque, Rs., Lakh,
+    HDFC, /-, Indian comma-formatted numbers) that dense embeddings may not
+    align well with.  The query is expanded with synonyms before embedding and
+    BM25 tokenization to improve recall.  The similarity threshold gate in
+    agent.py is evaluated against the hybrid combined score so that a strong
+    BM25 keyword match is not blocked by a weak embedding cosine alone.
     """
-    embed_scores = _rank_for_query(index, query, runtime)  # already cosine, range ~[-1, 1]
+    expanded_query = _expand_legal_query(query)
+    embed_scores = _rank_for_query(index, expanded_query, runtime)  # cosine, range ~[-1, 1]
     # Normalise embedding scores to [0, 1] for blending
     e_min, e_max = float(embed_scores.min()), float(embed_scores.max())
     if e_max > e_min:
@@ -171,7 +226,8 @@ def hybrid_retrieve_question(
         norm_embed = embed_scores - e_min  # all-zero when all scores equal
 
     if index._bm25_df:
-        query_tokens = _tokenize(query)
+        # Tokenize the *expanded* query so BM25 also benefits from synonyms
+        query_tokens = _tokenize(expanded_query)
         bm25 = _bm25_scores(query_tokens, index)
         combined = alpha * norm_embed + (1.0 - alpha) * bm25
     else:
@@ -179,9 +235,11 @@ def hybrid_retrieve_question(
 
     k = top_k or SETTINGS.top_k_question
     ordered = np.argsort(combined)[::-1][:k]
-    top_score = float(embed_scores[ordered[0]]) if len(ordered) else -1.0
+    # Gate abstention on the *hybrid* score, not just the raw embedding cosine,
+    # so that a strong BM25 keyword match is not blocked by a low embedding score.
+    top_hybrid_score = float(combined[ordered[0]]) if len(ordered) else -1.0
     results = [(index.chunks[int(p)], float(embed_scores[p])) for p in ordered]
-    return results, top_score
+    return results, top_hybrid_score
 
 
 def retrieve_triage(

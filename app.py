@@ -27,6 +27,23 @@ CATEGORY_LABELS = {
     "jurisdiction_dependency": "May depend on jurisdiction",
 }
 
+ATTENTION_LABELS = {
+    "high": "🔴 High – worth a closer look",
+    "medium": "🟡 Medium – worth a closer look",
+    "low": "🟢 Low",
+}
+
+TOPIC_LABELS = {
+    "obligations": "📋 Obligations",
+    "money": "💰 Money / Payments",
+    "deadlines": "📅 Deadlines / Dates",
+    "termination": "🚪 Termination",
+    "liability": "⚠️ Liability",
+    "jurisdiction": "🌍 Jurisdiction",
+    "ambiguity": "❓ Ambiguity",
+    "general": "📄 General",
+}
+
 
 @st.cache_resource(show_spinner=False)
 def get_runtime() -> LocalOllama:
@@ -56,24 +73,51 @@ def render_result(result: dict, title: str = "Analysis") -> None:
         else:
             st.caption(result["message"])
 
+    # --- Coverage line (triage only, Member 1) ---
+    coverage_line = result.get("coverage_line")
+    if coverage_line:
+        st.caption(f"📖 {coverage_line}")
+
     findings = result.get("findings", [])
+
+    # Sort findings: high attention first, then medium, then low (Member 1 schema)
+    _attention_order = {"high": 0, "medium": 1, "low": 2}
+    findings = sorted(findings, key=lambda f: _attention_order.get(f.get("attention", "low"), 2))
+
     for number, finding in enumerate(findings, start=1):
         label = CATEGORY_LABELS.get(finding.get("category", ""), "Finding")
+        topic = finding.get("topic", "general")
+        attention = finding.get("attention", "low")
+        topic_label = TOPIC_LABELS.get(topic, topic.title())
+        attention_label = ATTENTION_LABELS.get(attention, attention)
         with st.container(border=True):
-            st.markdown(f"**{number}. {label}**")
+            col_l, col_r = st.columns([3, 1])
+            with col_l:
+                st.markdown(f"**{number}. {label}**")
+            with col_r:
+                st.caption(f"{topic_label}")
+            st.caption(attention_label)
             st.write(finding.get("claim", ""))
             evidence = finding.get("evidence", [])
             for citation in evidence:
                 source = citation.get("source", {})
                 filename = source.get("filename", "uploaded document")
-                page_number = source.get("page_number", "?")
-                st.caption(f"Source: {filename}, page {page_number}")
+                all_pages = source.get("all_pages", [source.get("page_number", "?")])
+                page_str = "+".join(str(p) for p in all_pages)
+                st.caption(f"Source: {filename}, page {page_str}")
                 # st.code renders user-provided text as inert text rather than Markdown/HTML.
                 st.code(citation.get("quote", ""), language=None)
             lawyer_question = finding.get("lawyer_question", "")
             if lawyer_question:
                 st.markdown("**Question to discuss with a qualified legal professional**")
                 st.write(lawyer_question)
+
+    # --- Jurisdiction hints (Member 1) ---
+    jurisdiction_notes = result.get("jurisdiction_notes", [])
+    if jurisdiction_notes:
+        with st.expander("🌍 Jurisdiction notes"):
+            for note in jurisdiction_notes:
+                st.info(note)
 
     sources = result.get("sources", [])
     if sources:

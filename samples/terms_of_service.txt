@@ -1,0 +1,44 @@
+TERMS OF SERVICE — FICTIONAL EXAMPLE ONLY
+Synthetic test data for PS2 evaluation.
+
+Service: CloudStore (fictional SaaS product)
+Provider: DigitalBase Pvt Ltd (fictional)
+Version: 1.0 — October 2026
+
+1. ACCEPTANCE
+By using CloudStore, the user agrees to these terms. Users who do not agree must
+not use the service.
+
+2. SUBSCRIPTION AND FEES
+Monthly subscription: INR 999 per user per month (billed annually at INR 10,788).
+The Provider reserves the right to change pricing with 30 days' written notice.
+Continued use after the notice period constitutes acceptance of the new price.
+
+3. DATA OWNERSHIP
+All data uploaded by the user remains the user's property. The Provider will not
+sell or share user data with third parties without consent, except as required by law.
+
+4. DATA RETENTION AFTER CANCELLATION
+Upon cancellation, user data is retained for 30 days before permanent deletion.
+The Provider does not guarantee export of data after the account is closed.
+
+5. UPTIME COMMITMENT
+The Provider targets 99.5% monthly uptime. If uptime falls below 99%, the user
+receives a credit of one day's subscription fee for each percentage point below 99%.
+
+6. LIMITATION OF LIABILITY
+The Provider's maximum liability for any claim is limited to the fees paid in the
+preceding 3 months. The Provider is not liable for loss of data, lost profits, or
+indirect damages.
+
+7. TERMINATION BY PROVIDER
+The Provider may suspend or terminate the account if the user violates these terms,
+with or without prior notice at the Provider's discretion.
+
+8. GOVERNING LAW
+These terms are governed by Indian law. The agreement does not specify a jurisdiction
+for dispute resolution.
+
+9. CHANGES TO TERMS
+The Provider may update these terms at any time. Notice will be sent by email.
+Continued use after 14 days of the email constitutes acceptance.

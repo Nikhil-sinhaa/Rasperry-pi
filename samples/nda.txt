@@ -1,0 +1,44 @@
+NON-DISCLOSURE AGREEMENT — FICTIONAL EXAMPLE ONLY
+Synthetic test data for the PS2 evaluation corpus.
+
+Between: Nexus Innovations Pvt Ltd (Disclosing Party) (fictional)
+And:     Prism Ventures LLP (Receiving Party) (fictional)
+Date:    1 October 2026
+
+1. PURPOSE
+The parties wish to explore a potential business collaboration (the "Purpose") and
+may disclose confidential information to each other for this Purpose only.
+
+2. DEFINITION OF CONFIDENTIAL INFORMATION
+"Confidential Information" means any business, technical, financial, or other
+information disclosed by one party to the other, whether in writing, orally, or by
+any other means, that is marked as confidential or that a reasonable person would
+understand to be confidential.
+
+3. OBLIGATIONS
+The Receiving Party must: (a) keep the Confidential Information strictly secret;
+(b) use it only for the Purpose; (c) share it only with employees who need to know
+and are bound by equivalent obligations.
+
+4. TERM
+These obligations apply for 3 years from the date of this agreement.
+
+5. EXCEPTIONS
+The obligations do not apply to information that: (a) is already public knowledge;
+(b) was known to the Receiving Party before disclosure; (c) is required to be
+disclosed by law or court order (provided prompt notice is given).
+
+6. RETURN OR DESTRUCTION
+On written request, the Receiving Party must return or destroy all copies of
+Confidential Information within 10 business days.
+
+7. NO LICENCE
+Nothing in this agreement grants any licence or right to use any intellectual
+property of the Disclosing Party.
+
+8. GOVERNING LAW
+This agreement is governed by Indian law. Disputes shall be subject to the
+jurisdiction of courts in Delhi.
+
+9. SIGNATURES
+This is a fictional sample; no real signatures are present.

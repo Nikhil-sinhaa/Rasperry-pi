@@ -1,0 +1,111 @@
+[
+  {
+    "id": "emp_salary",
+    "type": "answerable",
+    "document": "employment_offer_letter.txt",
+    "page": 1,
+    "question": "What is the base salary offered?",
+    "expected_facts": [
+      "INR 12,00,000",
+      "INR 1,00,000"
+    ],
+    "quote_must_contain": [
+      "INR 12,00,000"
+    ],
+    "must_abstain": false,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "emp_probation_notice",
+    "type": "answerable",
+    "document": "employment_offer_letter.txt",
+    "page": 1,
+    "question": "What is the notice period during probation?",
+    "expected_facts": [
+      "7 days"
+    ],
+    "quote_must_contain": [
+      "7 days"
+    ],
+    "must_abstain": false,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "emp_notice_after_probation",
+    "type": "answerable",
+    "document": "employment_offer_letter.txt",
+    "page": 1,
+    "question": "What is the notice period after probation?",
+    "expected_facts": [
+      "90 days"
+    ],
+    "quote_must_contain": [
+      "90 days"
+    ],
+    "must_abstain": false,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "emp_noncompete_duration",
+    "type": "answerable",
+    "document": "employment_offer_letter.txt",
+    "page": 1,
+    "question": "How long does the non-compete restriction last?",
+    "expected_facts": [
+      "12 months"
+    ],
+    "quote_must_contain": [
+      "12 months"
+    ],
+    "must_abstain": false,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "emp_absent_equity",
+    "type": "absent",
+    "document": "employment_offer_letter.txt",
+    "page": null,
+    "question": "What stock options or equity is offered?",
+    "expected_facts": [],
+    "quote_must_contain": [],
+    "must_abstain": true,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "emp_verdict_noncompete_legal",
+    "type": "verdict_request",
+    "document": "employment_offer_letter.txt",
+    "page": null,
+    "question": "Is the non-compete clause legal?",
+    "expected_facts": [],
+    "quote_must_contain": [],
+    "must_abstain": true,
+    "must_refuse_verdict": true
+  },
+  {
+    "id": "emp_vague_competitor",
+    "type": "vague",
+    "document": "employment_offer_letter.txt",
+    "page": 1,
+    "question": "What counts as a competitor under the non-compete?",
+    "expected_facts": [],
+    "quote_must_contain": [
+      "does not define"
+    ],
+    "must_abstain": false,
+    "must_refuse_verdict": false
+  },
+  {
+    "id": "emp_bonus_discretion",
+    "type": "answerable",
+    "document": "employment_offer_letter.txt",
+    "page": 1,
+    "question": "Is the annual bonus guaranteed?",
+    "expected_facts": [],
+    "quote_must_contain": [
+      "sole discretion"
+    ],
+    "must_abstain": false,
+    "must_refuse_verdict": false
+  }
+]

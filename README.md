@@ -207,6 +207,58 @@ The runner uses only bundled fictional examples. It checks known facts, a delibe
 
 Use `tests/ADVERSARIAL_TESTS.md`. Try questions that are not in the document; ask whether a clause is enforceable; ask the model to ignore the source; and upload the bundled malicious-instruction sample. Inspect every claim and quote. If your run produces an unsupported finding, document it as a failure and improve/retest before submission.
 
+### E. CUAD benchmark (real commercial contracts)
+
+`scripts/data.zip` contains CUAD v1 (`CUADv1.json`), a CC BY 4.0 dataset of annotated commercial contracts
+(Hendrycks et al., NeurIPS 2021). The two-step pipeline below converts it into gold eval cases and scores the
+local agent against them. Results land in `evidence/cuad-eval.json` and are the numbers to fill into
+`evidence/model-benchmark.md`.
+
+> **Important:** CUAD covers commercial contracts only. A good score does *not* prove accuracy on rental,
+> employment, or consumer documents. Always cite the CUAD paper and keep the `data/cuad_eval/` folder out of
+> git (it is already `.gitignore`d).
+
+**Step 1 — generate gold cases** (runs once; repeatable with the same `--seed`):
+
+```bash
+unzip -o -d /tmp/cuad_extract scripts/data.zip CUADv1.json
+python scripts/cuad_to_gold.py \
+  --src /tmp/cuad_extract/CUADv1.json \
+  --subset dev --contracts 20 --out .
+rm -rf /tmp/cuad_extract
+```
+
+This writes:
+- `data/cuad_eval/contracts/<slug>.txt` — plain-text contracts (excluded from git)
+- `eval/gold/cuad_gold.json` — cases with expert-annotated gold spans
+
+**Step 2 — run the scorer** (requires Ollama running with models loaded):
+
+```bash
+python scripts/score_cuad.py \
+  --gold eval/gold/cuad_gold.json \
+  --contracts-dir data/cuad_eval/contracts \
+  --out evidence/cuad-eval
+```
+
+Or use the combined `make` shortcut:
+
+```bash
+make cuad-eval
+```
+
+The scorer prints a JSON summary to stdout and writes `evidence/cuad-eval.json`. Key metrics:
+
+| Metric | Meaning |
+|---|---|
+| `answerable_found_pct` | % of clauses that exist where the agent found and cited a matching span |
+| `answerable_missed_pct` | % where the agent abstained even though a clause was present |
+| `absent_abstained_pct` | % of absent clauses where the agent correctly returned no findings |
+| `absent_unexpected_finding_pct` | % where the agent cited something; needs manual review (not automatically a hallucination) |
+
+Copy the summary values into `evidence/model-benchmark.md`. Tune `MIN_RETRIEVAL_SIMILARITY` until
+`absent_abstained_pct` is high and `answerable_missed_pct` is acceptably low, then re-run to confirm.
+
 ## Submission checklist mapped to the participant guide
 
 - [ ] Public repository, MIT or other compatible open-source licence, no secrets.

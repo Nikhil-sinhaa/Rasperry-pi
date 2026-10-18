@@ -47,7 +47,7 @@ class FakeRuntime:
             self._counter += 1
         return self._registry[text]
 
-    def embed(self, texts: list[str], batch_size: int = 24) -> np.ndarray:
+    def embed(self, texts: list[str], batch_size: int = 24, **kwargs) -> np.ndarray:
         result = np.zeros((len(texts), self.dim), dtype=np.float32)
         for row, text in enumerate(texts):
             idx = self._get_index(text)

@@ -27,7 +27,8 @@ class LocalIndex:
 
 def build_index(files: list[tuple[str, bytes]], runtime: LocalOllama) -> LocalIndex:
     chunks, metadata = ingest_files(files)
-    vectors = runtime.embed([chunk.text for chunk in chunks])
+    # is_query=False (default) → nomic-embed-text uses 'search_document:' prefix for chunks
+    vectors = runtime.embed([chunk.text for chunk in chunks], is_query=False)
     if vectors.shape[0] != len(chunks):
         raise RuntimeError("Embedding count does not match the number of document chunks.")
     return LocalIndex(chunks=chunks, vectors=vectors, metadata=metadata)
@@ -53,7 +54,8 @@ TRIAGE_SEARCHES = list(TRIAGE_TOPIC_SEARCHES.values())
 
 
 def _rank_for_query(index: LocalIndex, query: str, runtime: LocalOllama) -> np.ndarray:
-    query_vector = runtime.embed([query])
+    # is_query=True → nomic-embed-text uses 'search_query:' prefix for questions/triage queries
+    query_vector = runtime.embed([query], is_query=True)
     if query_vector.shape[1] != index.vectors.shape[1]:
         raise RuntimeError("Query embedding dimensions do not match document embeddings.")
     return index.vectors @ query_vector[0]
@@ -78,7 +80,8 @@ def retrieve_triage(
     top_k: int | None = None,
 ) -> tuple[list[tuple[Chunk, float]], float]:
     """Legacy multi-query triage (kept for backward compat). Prefer retrieve_triage_per_topic()."""
-    query_vectors = runtime.embed(TRIAGE_SEARCHES)
+    # is_query=True → nomic-embed-text uses 'search_query:' prefix for triage queries
+    query_vectors = runtime.embed(TRIAGE_SEARCHES, is_query=True)
     if query_vectors.shape[1] != index.vectors.shape[1]:
         raise RuntimeError("Triage-query embedding dimensions do not match document embeddings.")
     score_matrix = query_vectors @ index.vectors.T
@@ -116,7 +119,8 @@ def retrieve_triage_per_topic(
         max_total = SETTINGS.top_k_triage * len(TRIAGE_TOPIC_SEARCHES)
 
     query_list = list(TRIAGE_TOPIC_SEARCHES.values())
-    query_vectors = runtime.embed(query_list)
+    # is_query=True → nomic-embed-text uses 'search_query:' prefix for triage topic queries
+    query_vectors = runtime.embed(query_list, is_query=True)
     if query_vectors.shape[1] != index.vectors.shape[1]:
         raise RuntimeError("Triage-query embedding dimensions do not match document embeddings.")
     score_matrix = query_vectors @ index.vectors.T  # shape: (n_topics, n_chunks)
